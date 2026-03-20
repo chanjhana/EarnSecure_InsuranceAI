@@ -1,4 +1,4 @@
-# ⚡ EarnSecure
+# EarnSecure
 ### AI-Powered Parametric Income Insurance for India's Food Delivery Riders
 
 > *When rain stops a Swiggy rider from working, they lose their entire day's income.*
@@ -299,22 +299,22 @@ We insure **income lost**, not the cost of external events. Six triggers cover t
 
 | Trigger | Threshold | Data Source | Payout (Basic) | Payout (Full) |
 |---|---|---|---|---|
-| 🌧️ Heavy Rain | ≥ 64.5 mm/day | IMD / OpenWeatherMap | ₹300/day | ₹600/day |
-| 🌡️ Extreme Heat | ≥ 45°C or Heat Index ≥ 41°C for 2hrs | IMD Heatwave Alert | ₹400/day | ₹700/day |
-| 🏭 AQI Hazard | AQI ≥ 300 (Very Poor) | CPCB Sameer API | — | ₹400/day |
-| 📵 Platform Outage | App down ≥ 30 mins | Downdetector + Status Page | ₹300/day | ₹500/day |
-| 🏪 FSSAI Zone Closure | Mass restaurant closure in rider's pin code | FSSAI Public DB | — | ₹400/day |
-| 🌫️ Dense Fog | Visibility < 50m | IMD Fog Alert (North India, Nov–Feb) | — | ₹300/day |
+| Heavy Rain | ≥ 64.5 mm/day | IMD / OpenWeatherMap | ₹300/day | ₹600/day |
+| Extreme Heat | ≥ 45°C or Heat Index ≥ 41°C for 2hrs | IMD Heatwave Alert | ₹400/day | ₹700/day |
+| AQI Hazard | AQI ≥ 300 (Very Poor) | CPCB Sameer API | — | ₹400/day |
+| Platform Outage | App down ≥ 30 mins | Downdetector + Status Page | ₹300/day | ₹500/day |
+| FSSAI Zone Closure | Mass restaurant closure in rider's pin code | FSSAI Public DB | — | ₹400/day |
+| Dense Fog | Visibility < 50m | IMD Fog Alert (North India, Nov–Feb) | — | ₹300/day |
 
 ### Trigger Scenarios
 
-**🌧️ Heavy Rain — Mumbai Monsoon:**
+**Heavy Rain — Mumbai Monsoon:**
 Aug 14, 3:15pm. IMD records 78mm in Andheri West. Detected via OpenWeatherMap at 3:30pm. Rider Priya: 9 orders normally 3–6pm, today only 2 (78% drop). GPS confirms zone. Fraud check passes. **3:48pm → ₹600 credited. Priya was sheltering from rain when the money arrived.**
 
-**🏪 FSSAI Zone Closure — Hyderabad (World First):**
+**FSSAI Zone Closure — Hyderabad (World First):**
 A Tuesday afternoon, clear weather, no other disruptions. FSSAI seals 11 restaurants in Kondapur. Rider Venkat Rao in that zone: normally 8–10 orders, only 1 between 2–5pm (88% drop). GPS confirms. Zero weather events. Platform working normally. **4:30pm → ₹400 credited. The only insurance product in the world that paid for this.**
 
-**📵 Platform Outage — Nationwide AWS Failure:**
+**Platform Outage — Nationwide AWS Failure:**
 Documented Swiggy outage — 85–88% of users affected. Downdetector spike at 7:42pm. Outage persists 47 minutes. 1,247 eligible subscribers confirmed zero orders during window. **8:34pm → ₹3.74 lakh disbursed to 1,247 riders with zero human review.**
 
 ---
@@ -654,45 +654,32 @@ gantt
 
 ## 16. What Makes EarnSecure Unique
 
-### 1. 🏪 The FSSAI Trigger — Never Been Done Anywhere
+### 1. The FSSAI Trigger — Never Been Done Anywhere
 No insurance product in the world covers income loss from a government food safety raid closing restaurants in a rider's zone. Data is publicly available. Perfectly parametric. Completely external to the rider. SEWA's researchers called for expansion to new trigger types — we answered with a trigger they never imagined.
 
-### 2. 📵 Platform App Outage as a Parametric Trigger
+### 2. Platform App Outage as a Parametric Trigger
 When Zomato or Swiggy goes down due to an AWS failure, every active rider earns zero. No insurer on earth covers platform outage for gig workers. The platform's own status page confirms it. Zero ambiguity for fraud.
 
-### 3. 🧮 Micro-Cohort Actuarial Pricing
+### 3. Micro-Cohort Actuarial Pricing
 Every other team will have fixed tiers (₹39/₹69/₹99). We run k-means clustering every Sunday to assign each rider to a micro-cohort (zone + shift + season). Cohort loss data blends with individual GBR output at 65/35 for established riders, 30/70 for new ones. Real actuarial science — no other team will have this.
 
-### 4. ⚡ 2-Hour Payout vs 6-Week Industry Standard
+### 4. 2-Hour Payout vs 6-Week Industry Standard
 SEWA takes 6–8 weeks to pay out manually. We pay in under 2 hours. For a rider who lost ₹700 in a heatwave and needs petrol money to get home, 6 weeks is not insurance. It is a historical footnote.
 
-### 5. 🔄 Self-Correcting Loss Ratio Loop
+### 5. Self-Correcting Loss Ratio Loop
 The premium model doesn't just calculate — it learns. Live loss ratio on the admin dashboard. Drifts above 0.80 → premiums nudge up for affected zones. Falls below 0.50 → premiums reduce. A static formula with a dynamic label is not this.
 
-### 6. 🧩 Basis Risk Solved
+### 6. Basis Risk Solved
 We detect income loss even when no formal trigger fires — comparing expected vs actual earnings using 30-day history. No other parametric product addresses the fundamental structural weakness of parametric insurance.
 
-### 7. ⚖️ IRDAI Compliance from Day 1
+### 7. IRDAI Compliance from Day 1
 Automated claims in 2 hours, disputed in 72 hours — both beating IRDAI's 15-day TAT mandate. Platform continuity rule protects riders deactivated during strikes. IRDAI Regulatory Sandbox is the legal pathway to production.
 
-### 8. 🔓 Financial Independence from the Platform
+### 8. Financial Independence from the Platform
 When 150 Blinkit riders were blocked from the app for protesting in 43°C heat, they lost their income and their platform-tied insurance simultaneously. With EarnSecure, a rider who goes on strike, refuses unsafe work, or gets deactivated still has income protection — **because we are not Swiggy.**
 
 ---
 
-## Hackathon Constraint Compliance
-
-| Constraint | Status | Implementation |
-|---|---|---|
-| ✅ Weekly pricing model | Met | Premiums calculated and charged weekly (Mon–Sun); auto-debit Monday 8am |
-| ✅ Income loss coverage only | Met | Pays lost wages only — zero health, life, accident, or vehicle repair payouts |
-| ✅ Delivery partner persona | Met | Food delivery riders (Zomato/Swiggy) — specific sub-category with justification |
-| ✅ Parametric automation | Met | 6 triggers: real-time monitoring → auto-claim → instant payout, zero touch |
-| ✅ AI/ML integration | Met | GBR premium + IsolationForest fraud + k-means cohort + basis risk fallback |
-| ✅ Fraud detection | Met | 4-layer system: anomaly scoring, 3-point validation, duplicate prevention, edge cases |
-| ✅ Mock/free APIs acceptable | Met | OpenWeatherMap (free), CPCB (free), platform (mock), Razorpay (sandbox) |
-
----
 
 *EarnSecure — Guidewire DEVTrails 2026 — University Hackathon*
 *Phase 1 Submission | March 2026*
