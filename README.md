@@ -9,6 +9,9 @@
 
 ---
 
+**Run & development:** See `GETTING_STARTED.md` for quick setup and run instructions.
+
+
 ## System Architecture Overview
 
 ```mermaid
