@@ -1,0 +1,1 @@
+# EarnSecure FastAPI application package.
