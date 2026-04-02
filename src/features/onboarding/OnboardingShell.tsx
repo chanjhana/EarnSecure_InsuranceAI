@@ -2,19 +2,17 @@ import { useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { calculatePremium } from '../../api/premiumClient';
+import { SkeletonLoader } from '../../components/ui/SkeletonLoader';
+import { Toast } from '../../components/ui/Toast';
 import { updateRiderProfile } from '../../api/ridersClient';
 import { setAuthSession } from '../../store/authStore';
 import { colors } from '../../theme/colors';
-import { PlatformLinkStep } from './PlatformLinkStep';
-import { PhoneOTPStep } from './PhoneOTPStep';
-import { PremiumRevealStep } from './PremiumRevealStep';
-import { UPIActivateStep } from './UPIActivateStep';
-import { OnboardingState } from './types';
-import { ZoneShiftStep } from './ZoneShiftStep';
+import { AuthChoiceStep } from './AuthChoiceStep';
+import { RiderLoginStep } from './RiderLoginStep';
 
 type OnboardingShellProps = {
-  step: 1 | 2 | 3 | 4 | 5;
-  onStepChange: (step: 1 | 2 | 3 | 4 | 5) => void;
+  step: 1 | 1.5 | 1.75 | 2 | 3 | 4 | 5;
+  onStepChange: (step: 1 | 1.5 | 1.75 | 2 | 3 | 4 | 5) => void;
   state: OnboardingState;
   onStateChange: (next: Partial<OnboardingState>) => void;
   onCompleted: () => void;
@@ -22,10 +20,16 @@ type OnboardingShellProps = {
 
 export function OnboardingShell({ step, onStepChange, state, onStateChange, onCompleted }: OnboardingShellProps) {
   const [error, setError] = useState<string | null>(null);
+  const [isCalculatingPremium, setIsCalculatingPremium] = useState(false);
 
-  const progressLabel = useMemo(() => `${step} / 5`, [step]);
+  const progressLabel = useMemo(() => {
+    if (step === 1) return '1 / 5';
+    if (step === 1.5) return '1 / 5';
+    if (step === 1.75) return '1 / 5';
+    return `${Math.floor(step)} / 5`;
+  }, [step]);
 
-  const goNext = (next: 1 | 2 | 3 | 4 | 5) => {
+  const goNext = (next: 1 | 1.5 | 1.75 | 2 | 3 | 4 | 5) => {
     setError(null);
     onStepChange(next);
   };
@@ -49,8 +53,30 @@ export function OnboardingShell({ step, onStepChange, state, onStateChange, onCo
                 token: payload.jwt,
                 riderId: payload.riderId,
               });
-              goNext(2);
+              goNext(1.5);
             }}
+          />
+        ) : null}
+
+        {step === 1.5 ? (
+          <AuthChoiceStep
+            onChooseLogin={() => goNext(1.75)}
+            onChooseSignup={() => goNext(2)}
+          />
+        ) : null}
+
+        {step === 1.75 ? (
+          <RiderLoginStep
+            phone={state.phone!}
+            onLogin={(payload) => {
+              setAuthSession(payload.jwt, payload.riderId);
+              onStateChange({
+                token: payload.jwt,
+                riderId: payload.riderId,
+              });
+              onCompleted(); // Skip onboarding for existing users
+            }}
+            onSwitchToSignup={() => goNext(2)}
           />
         ) : null}
 
@@ -68,17 +94,18 @@ export function OnboardingShell({ step, onStepChange, state, onStateChange, onCo
           />
         ) : null}
 
-        {step === 3 && state.riderId ? (
+        {step === 3 && state.riderId && !isCalculatingPremium ? (
           <ZoneShiftStep
-            suggestedZones={state.activitySummary?.zones ?? ['Velachery', 'Adyar', 'Tambaram', 'OMR']}
-            onSelected={async (pinCode, shiftWindow) => {
+            onSelected={async (pinCode, zones, shiftWindows) => {
               try {
+                setIsCalculatingPremium(true);
                 await updateRiderProfile({
                   rider_id: state.riderId!,
                   pin_code: pinCode,
-                  shift_window: shiftWindow,
+                  zones,
+                  shift_windows: shiftWindows,
                 });
-                onStateChange({ pinCode, shiftWindow });
+                onStateChange({ pinCode, zones, shiftWindows });
                 const premium = await calculatePremium(state.riderId!);
                 onStateChange({
                   premiumPaise: premium.premium_paise,
@@ -88,9 +115,18 @@ export function OnboardingShell({ step, onStepChange, state, onStateChange, onCo
                 goNext(4);
               } catch (err) {
                 setError(err instanceof Error ? err.message : 'Unable to save profile.');
+              } finally {
+                setIsCalculatingPremium(false);
               }
             }}
           />
+        ) : null}
+
+        {step === 3 && isCalculatingPremium ? (
+          <>
+            <Toast message="Calculating your premium from live profile signals..." variant="info" />
+            <SkeletonLoader lines={5} />
+          </>
         ) : null}
 
         {step === 4 && state.premiumPaise !== undefined ? (
@@ -113,7 +149,7 @@ export function OnboardingShell({ step, onStepChange, state, onStateChange, onCo
           />
         ) : null}
 
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+        {error ? <Toast message={error} variant="error" onClose={() => setError(null)} /> : null}
       </View>
     </View>
   );
@@ -144,5 +180,4 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     padding: 14,
   },
-  error: { color: colors.coral, marginTop: 8, fontSize: 12 },
 });

@@ -13,9 +13,16 @@ from uuid import uuid4
 class RiderRecord:
     rider_id: str
     phone: str
+    vehicle_number: Optional[str] = None
+    legal_name: Optional[str] = None
+    password_hash: Optional[str] = None
+    is_verified: bool = False
+    verified_by: Optional[str] = None
+    verified_at: Optional[datetime] = None
     platform: Optional[str] = None
     pin_code: Optional[str] = None
-    shift_window: Optional[str] = None
+    zones: List[str] = field(default_factory=list)
+    shift_windows: List[str] = field(default_factory=list)
     upi_id: Optional[str] = None
     activity_summary: Dict[str, object] = field(default_factory=dict)
 
@@ -76,7 +83,8 @@ class InMemoryStore:
             phone="+91 90000 11111",
             platform="swiggy",
             pin_code="560034",
-            shift_window="evening",
+            zones=["Koramangala", "HSR"],
+            shift_windows=["evening"],
             upi_id="ravi@upi",
             activity_summary={"d30_orders": 228, "avg_daily": 7.6, "zones": ["Koramangala", "HSR"]},
         )
@@ -156,6 +164,8 @@ class InMemoryStore:
     def issue_otp(self, phone: str) -> str:
         otp = "".join(random.choices(string.digits, k=6))
         self.otps[phone] = {"otp": otp, "expires_at": datetime.utcnow() + timedelta(minutes=10)}
+        print(f"NEW - OTP : {otp}")  # For development purposes
+        # TODO: Integrate OTP SMS API to send OTP via SMS instead of printing
         return otp
 
     def verify_otp(self, phone: str, otp: str) -> str:
@@ -173,6 +183,18 @@ class InMemoryStore:
         self.riders[new_id] = RiderRecord(rider_id=new_id, phone=phone)
         return new_id
 
+    def ensure_rider(self, rider_id: str, phone: Optional[str] = None) -> RiderRecord:
+        rider = self.riders.get(rider_id)
+        if rider:
+            if phone and not rider.phone:
+                rider.phone = phone
+            return rider
+
+        restored_phone = phone or "+91 00000 00000"
+        rider = RiderRecord(rider_id=rider_id, phone=restored_phone)
+        self.riders[rider_id] = rider
+        return rider
+
     def link_platform(self, rider_id: str, platform: str) -> PlatformActivitySummary:
         rider = self.riders.get(rider_id)
         if not rider:
@@ -186,43 +208,42 @@ class InMemoryStore:
         rider.activity_summary = summary
         return summary  # type: ignore[return-value]
 
-    def update_profile(self, rider_id: str, pin_code: str, shift_window: str, upi_id: Optional[str]) -> None:
+    def update_profile(self, rider_id: str, pin_code: str, zones: List[str], shift_windows: List[str], upi_id: Optional[str]) -> None:
         rider = self.riders.get(rider_id)
         if not rider:
             raise KeyError("rider not found")
         rider.pin_code = pin_code
-        rider.shift_window = shift_window
+        rider.zones = zones
+        rider.shift_windows = shift_windows
         rider.upi_id = upi_id or rider.upi_id
 
     def calculate_premium(self, rider_id: str) -> dict:
         rider = self.riders.get(rider_id)
-        base = 5200
-        if rider and rider.activity_summary:
-            base = int(2500 + (rider.activity_summary.get("d30_orders", 150) / 3))
-        gbr_score = round(random.uniform(0.42, 0.78), 3)
-        cohort_adj = random.choice([0.06, -0.04, 0.12, -0.08])
-        premium = max(2500, min(15000, int(base * (1 + cohort_adj))))
-        covers = [
-            {"type": "rain", "min_paise": 30000, "max_paise": 60000},
-            {"type": "heat", "min_paise": 40000, "max_paise": 70000},
-            {"type": "outage", "min_paise": 30000, "max_paise": 50000},
-            {"type": "aqi", "min_paise": 30000, "max_paise": 40000},
-            {"type": "closure", "min_paise": 30000, "max_paise": 40000},
-            {"type": "fog", "min_paise": 30000, "max_paise": 30000},
-        ]
-        model_inputs = {
-            "zone_disruption_score": random.randint(1, 10),
-            "shift_window": rider.shift_window if rider else "evening",
-            "forecast_rain_mm": round(random.uniform(10, 80), 1),
-            "history_payouts": random.randint(0, 4),
-            "order_density": random.randint(50, 200),
-        }
+        if not rider:
+            raise KeyError("rider not found")
+
+        # Dummy premium calculation logic
+        gbr_score = round(random.uniform(0.1, 0.9), 2)
+        cohort_adj = round(random.uniform(-0.15, 0.15), 2)
+        base_premium = 10000
+        premium = int(base_premium * (1 + gbr_score + cohort_adj))
+
         return {
             "premium_paise": premium,
             "gbr_score": gbr_score,
             "cohort_adj": cohort_adj,
-            "model_inputs": model_inputs,
-            "covers": covers,
+            "model_inputs": {
+                "pin_code": rider.pin_code or "N/A",
+                "zones": ", ".join(rider.zones),
+                "shift_windows": ", ".join(rider.shift_windows),
+                "d30_orders": rider.activity_summary.get("d30_orders", 0),
+                "avg_daily_hrs": rider.activity_summary.get("avg_daily", 0),
+            },
+            "covers": [
+                {"type": "rain", "min_paise": 5000, "max_paise": 20000},
+                {"type": "heat", "min_paise": 3000, "max_paise": 15000},
+                {"type": "outage", "min_paise": 4000, "max_paise": 18000},
+            ],
         }
 
     def activate_policy(self, rider_id: str, upi_id: str) -> PolicyRecord:

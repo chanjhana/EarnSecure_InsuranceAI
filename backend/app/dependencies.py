@@ -1,15 +1,32 @@
 """Shared dependencies and singletons."""
 from __future__ import annotations
 
+import os
+from pathlib import Path
+
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 import jwt
+from dotenv import load_dotenv
 
+from .postgres_store import PostgresBackedStore
 from .security import decode_access_token
 from .storage import InMemoryStore
 
-# Single in-memory store (Demo-only. TODO : replace with a proper database and data access layer.)
-_store = InMemoryStore()
+_env_file = Path(__file__).resolve().parents[1] / ".env.local"
+load_dotenv(_env_file)
+_database_url = os.getenv("DATABASE_URL")
+
+# Use PostgreSQL when DATABASE_URL is configured; fallback to in-memory for local resilience.
+if _database_url:
+    try:
+        _store = PostgresBackedStore(_database_url)
+        print("Connected to PostgreSQL store")
+    except Exception as exc:
+        print(f"PostgreSQL init failed, using in-memory store: {exc}")
+        _store = InMemoryStore()
+else:
+    _store = InMemoryStore()
 _bearer = HTTPBearer(auto_error=False)
 
 

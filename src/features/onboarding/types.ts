@@ -11,7 +11,8 @@ export type OnboardingState = {
   platformRiderId?: string;
   activitySummary?: { d30_orders: number; avg_daily: number; zones: string[] };
   pinCode?: string;
-  shiftWindow?: ShiftWindow;
+  zones?: string[];
+  shiftWindows?: ShiftWindow[];
   premiumPaise?: number;
   premiumModelInputs?: Record<string, string | number>;
   covers?: TriggerCoverage[];

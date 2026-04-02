@@ -25,9 +25,9 @@ export function PayoutCard({ claim, showVerifications = false, expanded = false 
 
       {showVerifications && expanded ? (
         <View style={styles.verifications}>
-          <Text style={styles.verificationText}>Platform activity check: PASS</Text>
-          <Text style={styles.verificationText}>Order drop check: PASS</Text>
-          <Text style={styles.verificationText}>GPS zone match: PASS</Text>
+          <View style={styles.verificationChip}><Text style={styles.verificationText}>[OK] Platform activity</Text></View>
+          <View style={styles.verificationChip}><Text style={styles.verificationText}>[OK] Order drop</Text></View>
+          <View style={styles.verificationChip}><Text style={styles.verificationText}>[OK] GPS zone</Text></View>
         </View>
       ) : null}
     </View>
@@ -47,6 +47,14 @@ const styles = StyleSheet.create({
   trigger: { fontSize: 12, fontWeight: '700', color: colors.ink2 },
   date: { fontSize: 11, color: colors.muted },
   amount: { fontSize: 24, fontWeight: '800', color: colors.teal },
-  verifications: { borderTopWidth: 1, borderTopColor: colors.paper3, paddingTop: 8, gap: 4 },
-  verificationText: { fontSize: 11, color: colors.muted },
+  verifications: { borderTopWidth: 1, borderTopColor: colors.paper3, paddingTop: 8, gap: 6 },
+  verificationChip: {
+    borderWidth: 1,
+    borderColor: '#9FDCC6',
+    borderRadius: 6,
+    backgroundColor: colors.tealLight,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+  },
+  verificationText: { fontSize: 11, color: colors.tealDark, fontWeight: '700' },
 });

@@ -9,9 +9,13 @@ export async function linkPlatform(payload: { platform: Platform; rider_id: stri
   });
 }
 
-export async function updateRiderProfile(payload: { rider_id: string; pin_code: string; shift_window: 'morning' | 'afternoon' | 'evening' | 'night'; upi_id?: string }): Promise<{ updated: boolean }> {
+export async function updateRiderProfile(payload: { rider_id: string; pin_code: string; zones: string[]; shift_windows: ('morning' | 'afternoon' | 'evening' | 'night')[]; upi_id?: string }): Promise<{ updated: boolean }> {
   return apiRequest<{ updated: boolean }>(`/riders/${payload.rider_id}/profile`, {
     method: 'PUT',
     body: payload,
   });
+}
+
+export async function getZones(pincode: string): Promise<{ zones: string[] }> {
+  return apiRequest<{ zones: string[] }>(`/riders/zones?pincode=${pincode}`);
 }

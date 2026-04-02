@@ -34,4 +34,4 @@ app = create_app()
 
 @app.get("/")
 async def root() -> dict:
-	return {"service": "earnsecure", "version": "0.1.0"}
+	return {"service": "earnsecure", "version": "0.1.0", "status": "live"}

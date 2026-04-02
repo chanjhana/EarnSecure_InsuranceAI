@@ -17,6 +17,22 @@ class VerifyOtpResponse(BaseModel):
     rider_id: str
 
 
+class RiderInfoRequest(BaseModel):
+    rider_id: str
+    vehicle_number: str
+    legal_name: str
+    password: str
+
+
+class RiderLoginRequest(BaseModel):
+    phone: str
+    password: str
+
+
+class AdminLoginRequest(BaseModel):
+    password: str
+
+
 class AuthSessionResponse(BaseModel):
     rider_id: str
     phone: str
@@ -42,7 +58,8 @@ class LinkPlatformResponse(BaseModel):
 class UpdateRiderProfileRequest(BaseModel):
     rider_id: str
     pin_code: str
-    shift_window: Literal["morning", "afternoon", "evening", "night"]
+    zones: List[str]
+    shift_windows: List[Literal["morning", "afternoon", "evening", "night"]]
     upi_id: Optional[str] = None
 
 
@@ -147,3 +164,12 @@ class DemoFireTriggerRequest(BaseModel):
 class DemoFireTriggerResponse(BaseModel):
     fired: bool
     event_id: str
+
+
+class RiderVerificationInfo(BaseModel):
+    rider_id: str
+    legal_name: str
+    vehicle_number: str
+    is_verified: bool
+    verified_by: Optional[str] = None
+    verified_at: Optional[str] = None

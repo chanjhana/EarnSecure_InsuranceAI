@@ -22,7 +22,14 @@ export function PayoutHistory({ riderId, claims, totalThisWeek }: PayoutHistoryP
       </View>
 
       {claims.length ? (
-        claims.map((claim, index) => <PayoutCard key={claim.id} claim={claim} expanded={index === 0} showVerifications={index === 0} />)
+        claims.map((claim, index) => (
+          <PayoutCard
+            key={claim.id}
+            claim={claim}
+            expanded={index === 0}
+            showVerifications={index === 0 && claim.status === 'paid'}
+          />
+        ))
       ) : (
         <Text style={styles.empty}>No payouts yet this week.</Text>
       )}

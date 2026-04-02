@@ -7,9 +7,11 @@ from ..schemas import (
     DemoFireTriggerResponse,
     FraudQueueItem,
     PortfolioStats,
+    RiderVerificationInfo,
     TriggerEvent,
 )
 from ..storage import InMemoryStore
+from datetime import datetime
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -59,6 +61,46 @@ async def trigger_events(
     _: str = Depends(get_current_rider_id),
 ) -> list[TriggerEvent]:
     return [_serialize_trigger_event(event) for event in store.list_trigger_events()]
+
+
+@router.get("/riders/verification", response_model=list[RiderVerificationInfo])
+async def list_riders_for_verification(
+    store: InMemoryStore = Depends(get_store),
+    _: str = Depends(get_current_rider_id),
+) -> list[RiderVerificationInfo]:
+    riders = []
+    for rider in store.riders.values():
+        riders.append(
+            RiderVerificationInfo(
+                rider_id=rider.rider_id,
+                legal_name=rider.legal_name or "N/A",
+                vehicle_number=rider.vehicle_number or "N/A",
+                is_verified=rider.is_verified,
+                verified_by=rider.verified_by,
+                verified_at=rider.verified_at.isoformat() if rider.verified_at else None,
+            )
+        )
+    return riders
+
+
+@router.post("/riders/{rider_id}/verify")
+async def verify_rider(
+    rider_id: str,
+    store: InMemoryStore = Depends(get_store),
+    admin_id: str = Depends(get_current_rider_id),
+) -> dict:
+    rider = store.riders.get(rider_id)
+    if not rider:
+        raise HTTPException(status_code=404, detail="Rider not found")
+
+    # In a real app, you'd check if the user is an admin
+    if admin_id != "admin":
+        raise HTTPException(status_code=403, detail="Only admins can verify riders")
+
+    rider.is_verified = True
+    rider.verified_by = admin_id
+    rider.verified_at = datetime.utcnow()
+    return {"verified": True}
 
 
 @router.post("/claims/{claim_id}/approve")

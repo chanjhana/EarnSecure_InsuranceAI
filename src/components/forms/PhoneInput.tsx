@@ -17,7 +17,6 @@ export function PhoneInput({ value, onChangeText }: PhoneInputProps) {
         keyboardType="phone-pad"
         placeholder="+91 98765 43210"
         style={[styles.input, showError ? styles.inputError : null]}
-        maxLength={14}
       />
       {showError ? <Text style={styles.errorText}>Use a valid Indian mobile number.</Text> : null}
     </View>
@@ -31,9 +30,8 @@ function normalizePhoneValue(text: string): string {
   if (digits.startsWith('91')) {
     mobileDigits = digits.slice(2);
   }
-  if (mobileDigits.length > 10) {
-    mobileDigits = mobileDigits.slice(mobileDigits.length - 10);
-  }
+  
+  mobileDigits = mobileDigits.slice(0, 10);
 
   const first = mobileDigits.slice(0, 5);
   const second = mobileDigits.slice(5, 10);

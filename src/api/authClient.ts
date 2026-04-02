@@ -10,8 +10,8 @@ export async function sendOtp(payload: SendOtpRequest): Promise<{ sent: boolean;
   });
 }
 
-export async function verifyOtp(payload: VerifyOtpRequest): Promise<{ access_token: string; rider_id: string }> {
-  return apiRequest<{ access_token: string; rider_id: string }>('/auth/verify-otp', {
+export async function riderLogin(payload: { phone: string; password: string }): Promise<{ access_token: string; rider_id: string }> {
+  return apiRequest<{ access_token: string; rider_id: string }>('/auth/rider/login', {
     method: 'POST',
     body: payload,
   });

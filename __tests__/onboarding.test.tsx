@@ -10,6 +10,7 @@ jest.mock('../src/api/authClient', () => ({
 
 jest.mock('../src/api/ridersClient', () => ({
 	linkPlatform: jest.fn(async () => ({ valid: true, activity_summary: { d30_orders: 210, avg_daily: 7.0, zones: ['Velachery', 'Adyar'] } })),
+	getZones: jest.fn(async () => ({ zones: ['Mettupalayam', 'Palladam'] })),
 	updateRiderProfile: jest.fn(async () => ({ updated: true })),
 }));
 
@@ -93,6 +94,9 @@ describe('App onboarding to dashboard integration', () => {
 
 		await waitFor(() => screen.getByText('Where do you usually ride?'));
 		fireEvent.changeText(screen.getByPlaceholderText('600042'), '600042');
+		await waitFor(() => screen.getByText('Mettupalayam'));
+		fireEvent.press(screen.getByText('Mettupalayam'));
+		fireEvent.press(screen.getByText('MORNING'));
 		fireEvent.press(screen.getByText('Continue'));
 
 		await waitFor(() => screen.getByText('Your weekly premium'));
