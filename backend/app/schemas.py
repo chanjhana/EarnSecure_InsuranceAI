@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field
 
 
 class SendOtpRequest(BaseModel):
-    phone: str = Field(..., example="+91 98765 43210")
+    phone: str = Field(..., json_schema_extra={"example": "+91 98765 43210"})
 
 
 class VerifyOtpRequest(BaseModel):
@@ -15,6 +15,12 @@ class VerifyOtpRequest(BaseModel):
 class VerifyOtpResponse(BaseModel):
     access_token: str
     rider_id: str
+
+
+class AuthSessionResponse(BaseModel):
+    rider_id: str
+    phone: str
+    token_type: Literal["access"]
 
 
 class LinkPlatformRequest(BaseModel):
@@ -71,6 +77,7 @@ class TriggerStatus(BaseModel):
     threshold_label: str
     is_armed: bool
     last_checked_at: Optional[str] = None
+    state: Optional[Literal["idle", "watch", "fired"]] = None
 
 
 class ActivatePolicyRequest(BaseModel):
@@ -97,7 +104,7 @@ class Claim(BaseModel):
 class ClaimDetailResponse(BaseModel):
     claim: Claim
     fraud_score: float
-    fraud_checks: Dict[str, bool]
+    fraud_checks: Dict[str, bool | str]
     trigger_event: Dict[str, str | int | float]
 
 
@@ -119,3 +126,24 @@ class FraudQueueItem(BaseModel):
 class ClaimDecisionRequest(BaseModel):
     reviewer_note: Optional[str] = None
     reason: Optional[str] = None
+
+
+class TriggerEvent(BaseModel):
+    event_id: str
+    trigger_type: Literal["rain", "heat", "outage", "aqi", "closure", "fog"]
+    zone: str
+    metric: float
+    threshold: str
+    observed_at: str
+    status: Literal["pending", "processing", "approved", "held", "paid", "rejected"]
+    affected_riders: int
+
+
+class DemoFireTriggerRequest(BaseModel):
+    pin_code: str
+    trigger_type: Literal["rain", "heat", "outage", "aqi", "closure", "fog"]
+
+
+class DemoFireTriggerResponse(BaseModel):
+    fired: bool
+    event_id: str

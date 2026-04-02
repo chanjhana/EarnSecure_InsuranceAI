@@ -6,7 +6,12 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "typecheck": "tsc -p tsconfig.app.json --noEmit",
+    "test": "jest",
+    "test:ci": "jest --runInBand --ci",
+    "backend:test": "conda run -n earnsecure-backend python -m pytest backend/tests -q",
+    "verify": "npm run typecheck && npm run test:ci && npm run backend:test"
   },
   "dependencies": {
     "expo": "~54.0.33",
@@ -17,7 +22,13 @@
     "react-native-web": "^0.21.0"
   },
   "devDependencies": {
+    "@testing-library/jest-native": "^5.4.3",
+    "@testing-library/react-native": "^13.3.3",
+    "@types/jest": "^29.5.14",
     "@types/react": "~19.1.0",
+    "jest": "^29.7.0",
+    "jest-expo": "~54.0.11",
+    "react-test-renderer": "^19.1.0",
     "typescript": "~5.9.2"
   },
   "private": true

@@ -1,0 +1,31 @@
+name: PR Verify
+
+on:
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Setup Miniconda
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          activate-environment: base
+          auto-activate-base: true
+
+      - name: Run build and verification pipeline
+        shell: bash -el {0}
+        run: |
+          chmod +x ./build.sh
+          ./build.sh

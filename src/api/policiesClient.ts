@@ -1,6 +1,4 @@
-// TODO: Implement policy activation/current-policy endpoints.
-// POST /policies/activate
-// GET /policies/{rider_id}/current
+import { apiRequest } from './http';
 
 export type Policy = {
   policy_id: string;
@@ -15,19 +13,16 @@ export type TriggerStatus = {
   threshold_label: string;
   is_armed: boolean;
   last_checked_at?: string;
+  state?: 'idle' | 'watch' | 'fired';
 };
 
-export async function activatePolicy(_riderId: string, _upiId: string): Promise<Policy> {
-  // TODO: Schedule debit and create policy record.
-  return { policy_id: '', rider_id: '', status: 'active', week_start: '', week_end: '' };
+export async function activatePolicy(riderId: string, upiId: string): Promise<Policy> {
+  return apiRequest<Policy>('/policies/activate', {
+    method: 'POST',
+    body: { rider_id: riderId, upi_id: upiId },
+  });
 }
 
-export async function getCurrentPolicy(_riderId: string): Promise<{ policy: Policy; week_progress: number; next_premium: number; trigger_statuses: TriggerStatus[] }> {
-  // TODO: Drive rider dashboard home screen.
-  return {
-    policy: { policy_id: '', rider_id: '', status: 'active', week_start: '', week_end: '' },
-    week_progress: 0,
-    next_premium: 0,
-    trigger_statuses: [],
-  };
+export async function getCurrentPolicy(riderId: string): Promise<{ policy: Policy; week_progress: number; next_premium: number; trigger_statuses: TriggerStatus[] }> {
+  return apiRequest<{ policy: Policy; week_progress: number; next_premium: number; trigger_statuses: TriggerStatus[] }>(`/policies/${riderId}/current`);
 }

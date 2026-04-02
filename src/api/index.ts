@@ -1,4 +1,5 @@
 // Central exports for typed API clients.
+export * from './http';
 export * from './authClient';
 export * from './ridersClient';
 export * from './premiumClient';

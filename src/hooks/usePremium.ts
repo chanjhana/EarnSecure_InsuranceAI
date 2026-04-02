@@ -1,20 +1,32 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { calculatePremium } from '../api/premiumClient';
 
 export function usePremium() {
-  // TODO: Add cancellation to avoid stale updates.
   const [data, setData] = useState<Awaited<ReturnType<typeof calculatePremium>> | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const requestIdRef = useRef(0);
 
   const run = async (riderId: string) => {
+    requestIdRef.current += 1;
+    const requestId = requestIdRef.current;
     setLoading(true);
     try {
       const result = await calculatePremium(riderId);
-      setData(result);
+      if (requestId === requestIdRef.current) {
+        setData(result);
+        setError(null);
+      }
+    } catch (err) {
+      if (requestId === requestIdRef.current) {
+        setError(err instanceof Error ? err.message : 'Unable to calculate premium.');
+      }
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) {
+        setLoading(false);
+      }
     }
   };
 
-  return { data, loading, run };
+  return { data, loading, error, run };
 }

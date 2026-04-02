@@ -1,7 +1,6 @@
 import { sendOtp, verifyOtp } from '../api/authClient';
 
 export const authService = {
-  // TODO: Add telemetry/error mapping around auth requests.
-  sendOtp,
-  verifyOtp,
+  sendOtp: async (phone: string) => sendOtp({ phone }),
+  verifyOtp: async (phone: string, otp: string) => verifyOtp({ phone, otp }),
 };

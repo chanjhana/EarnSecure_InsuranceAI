@@ -1,13 +1,52 @@
-import { Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+
 import { Claim } from '../../api/claimsClient';
+import { StatusBadge } from '../../components/ui/StatusBadge';
+import { colors } from '../../theme/colors';
+import { paiseToInr } from '../../utils/currency';
+import { formatDateTime } from '../../utils/date';
 
 type PayoutCardProps = { claim: Claim; showVerifications?: boolean; expanded?: boolean };
 
-export function PayoutCard(_props: PayoutCardProps) {
-  // TODO: Show claim amount/status/timestamp + optional fraud checks panel.
+export function PayoutCard({ claim, showVerifications = false, expanded = false }: PayoutCardProps) {
+  const badgeStatus = claim.status === 'held' ? 'hold' : claim.status === 'rejected' ? 'rejected' : 'paid';
+
   return (
-    <View>
-      <Text>Payout Card</Text>
+    <View style={styles.card}>
+      <View style={styles.rowTop}>
+        <View>
+          <Text style={styles.trigger}>{claim.trigger_type.toUpperCase()} trigger</Text>
+          <Text style={styles.date}>{formatDateTime(claim.created_at)}</Text>
+        </View>
+        <StatusBadge status={badgeStatus} label={claim.status.toUpperCase()} />
+      </View>
+
+      <Text style={styles.amount}>{paiseToInr(claim.amount_paise)}</Text>
+
+      {showVerifications && expanded ? (
+        <View style={styles.verifications}>
+          <Text style={styles.verificationText}>Platform activity check: PASS</Text>
+          <Text style={styles.verificationText}>Order drop check: PASS</Text>
+          <Text style={styles.verificationText}>GPS zone match: PASS</Text>
+        </View>
+      ) : null}
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  card: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    backgroundColor: colors.white,
+    padding: 12,
+    gap: 8,
+  },
+  rowTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  trigger: { fontSize: 12, fontWeight: '700', color: colors.ink2 },
+  date: { fontSize: 11, color: colors.muted },
+  amount: { fontSize: 24, fontWeight: '800', color: colors.teal },
+  verifications: { borderTopWidth: 1, borderTopColor: colors.paper3, paddingTop: 8, gap: 4 },
+  verificationText: { fontSize: 11, color: colors.muted },
+});

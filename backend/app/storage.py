@@ -43,6 +43,18 @@ class ClaimRecord:
     trigger_event: Dict[str, object]
 
 
+@dataclass
+class TriggerEventRecord:
+    event_id: str
+    trigger_type: str
+    zone: str
+    metric: float
+    threshold: str
+    observed_at: datetime
+    status: str
+    affected_riders: int
+
+
 class InMemoryStore:
     """Deliberately simple storage to make the API demo-friendly."""
 
@@ -53,6 +65,7 @@ class InMemoryStore:
         self.claims: Dict[str, ClaimRecord] = {}
         self.rider_policy_index: Dict[str, str] = {}
         self.fraud_queue: List[str] = []
+        self.trigger_events: List[TriggerEventRecord] = []
         self.weekly_premiums_paise = 150_000
         self.weekly_payouts_paise = 92_500
         self._seed_sample_data()
@@ -107,6 +120,31 @@ class InMemoryStore:
         )
         self.claims[claim2.id] = claim2
         self.fraud_queue.append(claim2.id)
+
+        self.trigger_events.extend(
+            [
+                TriggerEventRecord(
+                    event_id="event-001",
+                    trigger_type="rain",
+                    zone="560034",
+                    metric=78.2,
+                    threshold=">= 64.5 mm",
+                    observed_at=datetime.utcnow() - timedelta(days=3, minutes=12),
+                    status="paid",
+                    affected_riders=38,
+                ),
+                TriggerEventRecord(
+                    event_id="event-002",
+                    trigger_type="outage",
+                    zone="560034",
+                    metric=47.0,
+                    threshold=">= 30 min",
+                    observed_at=datetime.utcnow() - timedelta(hours=10, minutes=18),
+                    status="held",
+                    affected_riders=21,
+                ),
+            ]
+        )
 
     @staticmethod
     def _current_week_bounds() -> tuple[datetime, datetime]:
@@ -240,6 +278,7 @@ class InMemoryStore:
         if not claim:
             raise KeyError("claim not found")
         claim.status = "approved"
+        self.weekly_payouts_paise += claim.amount_paise
         claim.fraud_checks["manual_review_note"] = note or "approved"
         if claim_id in self.fraud_queue:
             self.fraud_queue.remove(claim_id)
@@ -252,6 +291,82 @@ class InMemoryStore:
         claim.fraud_checks["manual_review_note"] = reason or "rejected"
         if claim_id in self.fraud_queue:
             self.fraud_queue.remove(claim_id)
+
+    def list_trigger_events(self) -> List[TriggerEventRecord]:
+        events = sorted(self.trigger_events, key=lambda event: event.observed_at, reverse=True)
+        return events[:50]
+
+    def fire_demo_trigger(self, pin_code: str, trigger_type: str) -> TriggerEventRecord:
+        thresholds = {
+            "rain": (71.0, ">= 64.5 mm"),
+            "heat": (46.8, ">= 45 C"),
+            "outage": (42.0, ">= 30 min"),
+            "aqi": (326.0, ">= 300"),
+            "closure": (11.0, "zone closure count >= 8"),
+            "fog": (38.0, "visibility < 50 m"),
+        }
+        metric, threshold = thresholds.get(trigger_type, (0.0, "threshold reached"))
+
+        affected_rider_ids = [
+            rider_id
+            for rider_id, rider in self.riders.items()
+            if rider.pin_code == pin_code and rider_id in self.rider_policy_index
+        ]
+
+        event = TriggerEventRecord(
+            event_id=f"event-{uuid4().hex[:8]}",
+            trigger_type=trigger_type,
+            zone=pin_code,
+            metric=metric,
+            threshold=threshold,
+            observed_at=datetime.utcnow(),
+            status="processing",
+            affected_riders=len(affected_rider_ids),
+        )
+        self.trigger_events.append(event)
+
+        for rider_id in affected_rider_ids:
+            amount_map = {
+                "rain": random.randint(30_000, 60_000),
+                "heat": random.randint(40_000, 70_000),
+                "outage": random.randint(30_000, 50_000),
+                "aqi": random.randint(30_000, 40_000),
+                "closure": random.randint(30_000, 40_000),
+                "fog": 30_000,
+            }
+            amount = amount_map.get(trigger_type, 30_000)
+            fraud_score = round(random.uniform(0.1, 0.82), 2)
+
+            claim = ClaimRecord(
+                id=f"claim-{uuid4().hex[:10]}",
+                rider_id=rider_id,
+                trigger_type=trigger_type,
+                amount_paise=amount,
+                status="held" if fraud_score >= 0.6 else "paid",
+                created_at=datetime.utcnow(),
+                fraud_score=fraud_score,
+                fraud_checks={
+                    "online": True,
+                    "order_drop": True,
+                    "gps_zone_match": True,
+                },
+                trigger_event={
+                    "event_id": event.event_id,
+                    "metric": metric,
+                    "threshold": threshold,
+                    "zone": pin_code,
+                },
+            )
+            self.claims[claim.id] = claim
+
+            if claim.status == "held":
+                self.fraud_queue.append(claim.id)
+            else:
+                self.weekly_payouts_paise += claim.amount_paise
+
+        held_count = len([cid for cid in self.fraud_queue if self.claims[cid].trigger_event.get("event_id") == event.event_id])
+        event.status = "held" if held_count else "paid"
+        return event
 
     @staticmethod
     def iso(dt: datetime) -> str:

@@ -60,7 +60,41 @@ npm run android # if Android SDK + emulator available
 
 - `npm run web` — start Expo for web
 - `npm start` — start Expo dev tools (mobile + web options)
-- `npm test` — run tests (if provided)
+- `npm run typecheck` — TypeScript compile checks
+- `npm run test:ci` — frontend integration tests
+- `npm run backend:test` — backend API integration tests
+- `npm run verify` — full pre-PR verification (typecheck + frontend tests + backend tests)
+
+## Testing before creating a PR
+
+Run this checklist before opening a pull request:
+
+1. Ensure backend conda environment exists:
+
+```bash
+conda create -y -n earnsecure-backend python=3.11
+conda run -n earnsecure-backend python -m pip install -r backend/requirements-dev.txt
+```
+
+2. Install frontend dependencies:
+
+```bash
+npm ci
+```
+
+3. Run complete verification:
+
+```bash
+npm run verify
+```
+
+4. Optional Render-style local build gate:
+
+```bash
+./build.sh
+```
+
+If all commands pass, the branch is ready for PR review.
 
 ## Troubleshooting
 

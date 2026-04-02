@@ -1,7 +1,3 @@
-// TODO: Keep route names aligned with rider/admin navigation flows.
+export type RootScreen = 'Onboarding' | 'RiderDashboard' | 'AdminDashboard';
 
-export type RootRoutes = {
-  Onboarding: undefined;
-  RiderDashboard: undefined;
-  AdminDashboard: undefined;
-};
+export type RiderTab = 'home' | 'history' | 'policy';

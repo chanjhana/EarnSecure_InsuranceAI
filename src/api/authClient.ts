@@ -1,15 +1,18 @@
-// TODO: Implement OTP auth endpoints.
-// POST /auth/send-otp
-// POST /auth/verify-otp
+import { apiRequest } from './http';
 
 export type SendOtpRequest = { phone: string };
 export type VerifyOtpRequest = { phone: string; otp: string };
 
-export async function sendOtp(_payload: SendOtpRequest): Promise<void> {
-  // TODO: Call backend and handle cooldown/rate-limit errors.
+export async function sendOtp(payload: SendOtpRequest): Promise<{ sent: boolean; otp?: string }> {
+  return apiRequest<{ sent: boolean; otp?: string }>('/auth/send-otp', {
+    method: 'POST',
+    body: payload,
+  });
 }
 
-export async function verifyOtp(_payload: VerifyOtpRequest): Promise<{ access_token: string; rider_id: string }> {
-  // TODO: Return JWT + rider id and persist in auth store.
-  return { access_token: '', rider_id: '' };
+export async function verifyOtp(payload: VerifyOtpRequest): Promise<{ access_token: string; rider_id: string }> {
+  return apiRequest<{ access_token: string; rider_id: string }>('/auth/verify-otp', {
+    method: 'POST',
+    body: payload,
+  });
 }
