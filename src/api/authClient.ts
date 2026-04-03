@@ -16,3 +16,10 @@ export async function riderLogin(payload: { phone: string; password: string }): 
     body: payload,
   });
 }
+
+export async function verifyOtp(payload: VerifyOtpRequest): Promise<{ access_token: string; rider_id: string }> {
+  return apiRequest<{ access_token: string; rider_id: string }>('/auth/verify-otp', {
+    method: 'POST',
+    body: payload,
+  });
+}

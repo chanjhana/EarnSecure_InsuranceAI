@@ -67,7 +67,7 @@ export function RiderLoginStep({ phone, onLogin, onSwitchToSignup }: RiderLoginS
 const styles = StyleSheet.create({
   container: { gap: 16 },
   title: { fontSize: 24, fontWeight: 'bold', textAlign: 'center' },
-  subtitle: { fontSize: 16, color: colors.textSecondary, textAlign: 'center', marginBottom: 8 },
+  subtitle: { fontSize: 16, color: colors.muted, textAlign: 'center', marginBottom: 8 },
   input: {
     height: 50,
     borderWidth: 1,
@@ -77,7 +77,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     backgroundColor: colors.white,
   },
-  switchText: { textAlign: 'center', fontSize: 14, color: colors.textSecondary },
-  link: { color: colors.primary, fontWeight: 'bold' },
+  switchText: { textAlign: 'center', fontSize: 14, color: colors.muted },
+  link: { color: colors.teal, fontWeight: 'bold' },
   error: { color: colors.coral, textAlign: 'center', fontSize: 14 },
 });
