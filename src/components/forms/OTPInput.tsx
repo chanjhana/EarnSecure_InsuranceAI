@@ -23,6 +23,7 @@ export function OTPInput({ value, onChangeText, onComplete }: OTPInputProps) {
         keyboardType="number-pad"
         maxLength={6}
         placeholder="000000"
+        placeholderTextColor={colors.ink3}
         style={styles.input}
       />
     </View>
@@ -30,15 +31,17 @@ export function OTPInput({ value, onChangeText, onComplete }: OTPInputProps) {
 }
 
 const styles = StyleSheet.create({
-  label: { fontSize: 12, marginBottom: 6 },
+  label: { fontSize: 13, marginBottom: 8, color: colors.ink2, fontWeight: '600' },
   input: {
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 10,
-    padding: 10,
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 12,
+    padding: 14,
     textAlign: 'center',
-    letterSpacing: 6,
-    backgroundColor: colors.white,
-    fontWeight: '700',
+    letterSpacing: 10,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    color: colors.ink,
+    fontSize: 24,
+    fontWeight: '800',
   },
 });

@@ -11,6 +11,7 @@ from uuid import uuid4
 # Import the actual business logic services
 from .services.premium_logic import calculate_premium
 from .services.fraud_logic import evaluate_fraud_risk
+from .services.notification_service import send_claim_sms
 from .config import CFG
 
 
@@ -435,6 +436,16 @@ class InMemoryStore:
                     pin_codes.add(rider.pin_code)
         return list(pin_codes)
 
+    def get_active_riders_in_zone(self, pin_code: str) -> list[RiderRecord]:
+        active_riders = []
+        for rider_id, policy_id in self.rider_policy_index.items():
+            policy = self.policies.get(policy_id)
+            if policy and policy.status == "active":
+                rider = self.riders.get(rider_id)
+                if rider and rider.pin_code == pin_code:
+                    active_riders.append(rider)
+        return active_riders
+
     def fire_trigger(self, trigger_type: str, zone: str, metric: float, threshold: str, affected_rider_ids: list[str]) -> TriggerEventRecord:
         event = TriggerEventRecord(
             event_id=f"event-{uuid4().hex[:8]}",
@@ -491,6 +502,11 @@ class InMemoryStore:
             self.weekly_payouts_paise += claim.amount_paise
             if trigger_event.status != "held":
                 trigger_event.status = "paid"
+            
+            # Parametric transaction complete -> trigger SMS
+            rider_phone = self.riders[rider_id].phone
+            if rider_phone:
+                send_claim_sms(rider_phone, amount_paise, trigger_event.trigger_type)
 
 
 # Type alias used for type hints without importing Pydantic inside storage

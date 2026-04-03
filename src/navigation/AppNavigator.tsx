@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { getClaims } from '../api/claimsClient';
 import { Claim } from '../api/claimsClient';
@@ -48,7 +49,7 @@ export function AppNavigator() {
   const totalThisWeek = useMemo(() => claims.filter((claim) => claim.status === 'paid' || claim.status === 'approved').reduce((sum, claim) => sum + claim.amount_paise, 0), [claims]);
 
   return (
-    <View style={styles.root}>
+    <LinearGradient colors={[colors.paper, '#06101f', '#030712']} style={styles.root}>
       {screen === 'Onboarding' ? (
         <OnboardingShell
           step={onboardingStep}
@@ -105,13 +106,13 @@ export function AppNavigator() {
           <AdminLogin onLogin={setAdminToken} />
         )
       ) : null}
-    </View>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.paper },
-  dashboardWrap: { flex: 1, paddingTop: 48, backgroundColor: colors.paper },
+  root: { flex: 1 },
+  dashboardWrap: { flex: 1, paddingTop: 48, backgroundColor: 'transparent' },
   dashboardHeader: {
     paddingHorizontal: 16,
     paddingBottom: 12,
@@ -119,8 +120,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  headline: { fontSize: 24, fontWeight: '800', color: colors.ink2 },
-  subhead: { fontSize: 12, color: colors.muted },
+  headline: { fontSize: 26, fontWeight: '900', color: colors.ink, letterSpacing: -0.5 },
+  subhead: { fontSize: 13, color: colors.tealLight, marginTop: 2, fontWeight: '600' },
   adminButton: {
     borderWidth: 1,
     borderColor: colors.border,
@@ -130,14 +131,18 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   adminButtonText: { color: colors.ink2, fontSize: 11, fontWeight: '700' },
-  scrollContent: { paddingHorizontal: 16, paddingBottom: 24, gap: 12 },
+  scrollContent: { paddingHorizontal: 16, paddingBottom: 24, gap: 16 },
   policyPanel: {
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    backgroundColor: colors.white,
-    padding: 14,
-    gap: 6,
+    borderColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 16,
+    backgroundColor: 'rgba(15, 23, 42, 0.4)',
+    padding: 18,
+    gap: 8,
+    shadowColor: colors.teal,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
   },
   policyTitle: { fontSize: 15, fontWeight: '700', color: colors.ink2 },
   policyLine: { fontSize: 12, color: colors.muted },

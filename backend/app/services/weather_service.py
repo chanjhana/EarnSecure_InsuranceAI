@@ -18,7 +18,11 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple
 
+import httpx
+import logging
 import requests
+
+logger = logging.getLogger("earnsecure.premium")
 
 from ..config import CFG
 
@@ -320,6 +324,87 @@ class WeatherService:
             "max_rain_mm": round(max_rain, 1),
             "avg_temp_max": round(avg_max, 1),
         }
+
+    async def get_risk_forecast(self, pin_code: str) -> dict:
+        """Fetch real forecast data and structure into a risk dictionary."""
+        fallback_data = {
+            "rain_probability": 0.3,
+            "max_rainfall_mm": 10.0,
+            "max_heat_index": 35.0,
+            "min_visibility_m": 5000,
+            "rainy_days": 1,
+            "city_name": "Unknown",
+            "lat": 0.0,
+            "lon": 0.0,
+            "forecast_source": "fallback"
+        }
+
+        if not self.is_available:
+            logger.error("OWM API key missing!")
+            return fallback_data
+
+        try:
+            # GEOLOCATE
+            geo_url = f"{self.OWM_GEO}/zip?zip={pin_code},IN&appid={self.api_key}"
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                geo_resp = await client.get(geo_url)
+                geo_resp.raise_for_status()
+                geo_data = geo_resp.json()
+                lat = geo_data["lat"]
+                lon = geo_data["lon"]
+                city = geo_data.get("name", pin_code)
+
+            # GET 5-DAY FORECAST
+            forecast_url = f"{self.OWM_BASE}/forecast?lat={lat}&lon={lon}&appid={self.api_key}&units=metric"
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                forecast_resp = await client.get(forecast_url)
+                forecast_resp.raise_for_status()
+                data = forecast_resp.json()
+
+            slots = data.get("list", [])
+            if not slots:
+                return fallback_data
+
+            rain_count = 0
+            max_rainfall_mm = 0.0
+            max_heat_index = 0.0
+            min_visibility_m = 10_000.0
+            rainy_days_set = set()
+
+            for entry in slots:
+                temp = entry.get("main", {}).get("temp", 0)
+                humidity = entry.get("main", {}).get("humidity", 0)
+                feels_like = _heat_index(temp, humidity)
+                max_heat_index = max(max_heat_index, feels_like)
+                
+                vis = entry.get("visibility", 10_000)
+                min_visibility_m = min(min_visibility_m, vis)
+                
+                rain = entry.get("rain", {}).get("3h", 0.0)
+                if rain > 0:
+                    rain_count += 1
+                    max_rainfall_mm = max(max_rainfall_mm, rain)
+                    date_str = entry.get("dt_txt", "")[:10]
+                    if date_str:
+                        rainy_days_set.add(date_str)
+
+            rain_probability = rain_count / len(slots) if slots else 0.0
+
+            return {
+                "rain_probability": round(rain_probability, 3),
+                "max_rainfall_mm": round(max_rainfall_mm, 2),
+                "max_heat_index": round(max_heat_index, 1),
+                "min_visibility_m": float(min_visibility_m),
+                "rainy_days": len(rainy_days_set),
+                "city_name": city,
+                "lat": float(lat),
+                "lon": float(lon),
+                "forecast_source": "openweathermap"
+            }
+
+        except Exception as e:
+            logger.error(f"Error fetching risk forecast: {e}")
+            return fallback_data
 
 
 # ── Module-level singleton ──────────────────────────────────────────
