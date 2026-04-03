@@ -1,4 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { Policy } from '../../api/policiesClient';
 import { StatusBadge } from '../../components/ui/StatusBadge';
@@ -12,7 +13,7 @@ export function PolicyStatusCard({ policy, weekProgress, nextPremium }: PolicySt
   const progressPercent = Math.round(weekProgress * 100);
 
   return (
-    <View style={styles.card}>
+    <LinearGradient colors={['rgba(30, 41, 59, 0.7)', 'rgba(15, 23, 42, 0.4)']} style={styles.card}>
       <View style={styles.header}>
         <Text style={styles.title}>Policy status</Text>
         <StatusBadge status={policy.status === 'active' ? 'active' : 'hold'} label={policy.status.toUpperCase()} />
@@ -26,24 +27,27 @@ export function PolicyStatusCard({ policy, weekProgress, nextPremium }: PolicySt
       </View>
       <Text style={styles.meta}>Week progress: {progressPercent}%</Text>
       <Text style={styles.meta}>Ends: {formatDateTime(policy.week_end)}</Text>
-    </View>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    backgroundColor: colors.white,
-    padding: 14,
-    gap: 6,
+    borderColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 20,
+    padding: 20,
+    gap: 8,
+    shadowColor: colors.teal,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
   },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  title: { fontSize: 12, color: colors.muted, fontWeight: '600' },
-  value: { fontSize: 30, fontWeight: '800', color: colors.teal },
-  subtitle: { fontSize: 11, color: colors.muted },
-  progressTrack: { height: 8, borderRadius: 99, backgroundColor: colors.paper2, overflow: 'hidden', marginTop: 4 },
-  progressFill: { height: '100%', backgroundColor: colors.teal },
-  meta: { color: colors.muted, fontSize: 11 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  title: { fontSize: 13, color: colors.ink2, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1 },
+  value: { fontSize: 38, fontWeight: '900', color: colors.teal, textShadowColor: 'rgba(20, 241, 149, 0.4)', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 10 },
+  subtitle: { fontSize: 12, color: colors.ink3 },
+  progressTrack: { height: 10, borderRadius: 99, backgroundColor: 'rgba(0,0,0,0.4)', overflow: 'hidden', marginTop: 8 },
+  progressFill: { height: '100%', backgroundColor: colors.teal, shadowColor: colors.teal, shadowOpacity: 1, shadowRadius: 10 },
+  meta: { color: colors.muted, fontSize: 11, marginTop: 2 },
 });

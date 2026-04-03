@@ -99,8 +99,8 @@ export function PhoneOTPStep({ onVerified, resendCooldown = 30 }: PhoneOTPStepPr
 const styles = StyleSheet.create({
   container: { gap: 12 },
   title: { fontSize: 24, fontWeight: '800', color: colors.ink },
-  subtitle: { fontSize: 13, color: colors.muted, marginBottom: 6 },
+  subtitle: { fontSize: 13, color: colors.ink3, marginBottom: 6, letterSpacing: 0.5 },
   otpBlock: { gap: 10 },
-  helper: { color: colors.muted, fontSize: 11, textAlign: 'center' },
+  helper: { color: colors.ink3, fontSize: 11, textAlign: 'center' },
   error: { color: colors.coral, fontSize: 12 },
 });

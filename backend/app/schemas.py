@@ -71,14 +71,19 @@ class TriggerCoverage(BaseModel):
 
 class PremiumRequest(BaseModel):
     rider_id: str
+    pin_code: str
+    shift_windows: List[str]
+    zones: List[str]
 
 
 class PremiumResponse(BaseModel):
-    premium_paise: int
-    gbr_score: float
-    cohort_adj: float
-    model_inputs: Dict[str, float | str]
-    covers: List[TriggerCoverage]
+    weekly_premium_paise: int
+    weekly_premium_inr: float
+    risk_score: float
+    breakdown: Dict
+    city_name: str
+    forecast_source: str
+    model: str
 
 
 class Policy(BaseModel):

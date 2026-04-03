@@ -1,4 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { TriggerStatus } from '../../api/policiesClient';
 import { StatusBadge } from '../../components/ui/StatusBadge';
@@ -9,7 +10,7 @@ type TriggerMonitorProps = { triggers: TriggerStatus[]; refreshInterval?: number
 
 export function TriggerMonitor({ triggers, refreshInterval = 15 * 60 * 1000 }: TriggerMonitorProps) {
   return (
-    <View style={styles.card}>
+    <LinearGradient colors={['rgba(30, 41, 59, 0.7)', 'rgba(15, 23, 42, 0.4)']} style={styles.card}>
       <Text style={styles.title}>Trigger monitor</Text>
       <Text style={styles.subtitle}>Checks every {Math.round(refreshInterval / 60000)} min</Text>
 
@@ -27,31 +28,34 @@ export function TriggerMonitor({ triggers, refreshInterval = 15 * 60 * 1000 }: T
           />
         </View>
       ))}
-    </View>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    backgroundColor: colors.white,
-    padding: 14,
-    gap: 10,
+    borderColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 20,
+    padding: 20,
+    gap: 12,
+    shadowColor: colors.teal,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
   },
-  title: { fontSize: 15, fontWeight: '700', color: colors.ink2 },
-  subtitle: { fontSize: 11, color: colors.muted },
+  title: { fontSize: 18, fontWeight: '800', color: colors.ink, letterSpacing: 0.5 },
+  subtitle: { fontSize: 12, color: colors.muted, marginBottom: 4 },
   row: {
     borderWidth: 1,
-    borderColor: colors.paper3,
-    backgroundColor: colors.paper,
-    borderRadius: 10,
-    padding: 10,
+    borderColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: 'rgba(255,255,255,0.02)',
+    borderRadius: 14,
+    padding: 14,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  triggerName: { fontSize: 12, color: colors.ink2, fontWeight: '700' },
-  triggerMeta: { fontSize: 11, color: colors.muted },
+  triggerName: { fontSize: 13, color: colors.ink2, fontWeight: '700', letterSpacing: 0.5 },
+  triggerMeta: { fontSize: 11, color: colors.muted, marginTop: 2 },
 });

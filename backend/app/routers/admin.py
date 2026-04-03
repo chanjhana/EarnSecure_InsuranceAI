@@ -12,6 +12,8 @@ from ..schemas import (
 )
 from ..storage import InMemoryStore
 from datetime import datetime
+import asyncio
+from ..services.outage_service import fetch_downdetector_reports
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -139,3 +141,21 @@ async def fire_demo_trigger(
 ) -> DemoFireTriggerResponse:
     event = store.fire_demo_trigger(payload.pin_code, payload.trigger_type)
     return DemoFireTriggerResponse(fired=True, event_id=event.event_id)
+
+@router.get("/outage-status")
+async def get_outage_status():
+    results = await asyncio.gather(
+        fetch_downdetector_reports("swiggy"),
+        fetch_downdetector_reports("zomato"),
+        return_exceptions=True
+    )
+    
+    response = {"checked_at": datetime.utcnow().isoformat()}
+    for result in results:
+        if isinstance(result, Exception):
+            continue
+        platform = result.get("platform")
+        if platform:
+            response[platform] = result
+            
+    return response

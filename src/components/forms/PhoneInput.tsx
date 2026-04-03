@@ -16,6 +16,7 @@ export function PhoneInput({ value, onChangeText }: PhoneInputProps) {
         onChangeText={(text) => onChangeText(normalizePhoneValue(text))}
         keyboardType="phone-pad"
         placeholder="+91 98765 43210"
+        placeholderTextColor={colors.ink3}
         style={[styles.input, showError ? styles.inputError : null]}
       />
       {showError ? <Text style={styles.errorText}>Use a valid Indian mobile number.</Text> : null}
@@ -41,8 +42,8 @@ function normalizePhoneValue(text: string): string {
 }
 
 const styles = StyleSheet.create({
-  label: { fontSize: 12, marginBottom: 6 },
-  input: { borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 10, backgroundColor: colors.white },
+  label: { fontSize: 13, marginBottom: 8, color: colors.ink2, fontWeight: '600' },
+  input: { borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', borderRadius: 12, padding: 14, backgroundColor: 'rgba(0,0,0,0.3)', color: colors.ink, fontSize: 16 },
   inputError: { borderColor: colors.coral },
-  errorText: { marginTop: 4, fontSize: 11, color: colors.coral },
+  errorText: { marginTop: 6, fontSize: 12, color: colors.coral },
 });

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View, Image } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { calculatePremium } from '../../api/premiumClient';
 import { SkeletonLoader } from '../../components/ui/SkeletonLoader';
@@ -41,10 +42,13 @@ export function OnboardingShell({ step, onStepChange, state, onStateChange, onCo
   };
 
   return (
-    <View style={styles.wrap}>
+    <LinearGradient colors={['#030712', '#0A1224', '#030712']} style={styles.wrap}>
       <View style={styles.header}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+           <Image source={require('../../../assets/earnsecure_logo.png')} style={{ width: 50, height: 50, resizeMode: 'contain' }} />
+           <Text style={styles.heading}>EarnSecure</Text>
+        </View>
         <Text style={styles.badge}>RIDER ONBOARDING</Text>
-        <Text style={styles.heading}>EarnSecure</Text>
         <Text style={styles.subheading}>No forms. No waiting. Just protection.</Text>
         <Text style={styles.progress}>Step {progressLabel}</Text>
       </View>
@@ -112,11 +116,16 @@ export function OnboardingShell({ step, onStepChange, state, onStateChange, onCo
                   shift_windows: shiftWindows,
                 });
                 onStateChange({ pinCode, zones, shiftWindows });
-                const premium = await calculatePremium(state.riderId!);
+                const premium = await calculatePremium({
+                  rider_id: state.riderId!,
+                  pin_code: pinCode,
+                  shift_windows: shiftWindows,
+                  zones,
+                });
                 onStateChange({
-                  premiumPaise: premium.premium_paise,
-                  premiumModelInputs: premium.model_inputs,
-                  covers: premium.covers,
+                  premiumPaise: premium.weekly_premium_paise,
+                  premiumModelInputs: premium as any, // pass full object for breakdown
+                  covers: [], // Covers omitted from response as requested
                 });
                 goNext(4);
               } catch (err) {
@@ -157,33 +166,39 @@ export function OnboardingShell({ step, onStepChange, state, onStateChange, onCo
 
         {error ? <Toast message={error} variant="error" onClose={() => setError(null)} /> : null}
       </View>
-    </View>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: { flex: 1, backgroundColor: colors.ink2, padding: 16, paddingTop: 56, gap: 14 },
+  wrap: { flex: 1, padding: 16, paddingTop: 56, gap: 14 },
   header: { gap: 4 },
   badge: {
     alignSelf: 'flex-start',
     color: colors.teal,
-    borderColor: '#1f6d56',
+    borderColor: colors.tealLight,
+    backgroundColor: 'rgba(20, 241, 149, 0.05)',
     borderWidth: 1,
-    borderRadius: 6,
+    borderRadius: 8,
     paddingHorizontal: 8,
     paddingVertical: 4,
     fontSize: 10,
-    fontWeight: '600',
+    fontWeight: '800',
+    letterSpacing: 1,
   },
-  heading: { fontSize: 30, fontWeight: '800', color: colors.white },
-  subheading: { color: '#A9A79E', fontSize: 13 },
-  progress: { color: colors.teal, fontSize: 12, fontWeight: '700' },
+  heading: { fontSize: 32, fontWeight: '900', color: colors.ink, textShadowColor: 'rgba(20, 241, 149, 0.2)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 8 },
+  subheading: { color: colors.ink3, fontSize: 13, letterSpacing: 0.5 },
+  progress: { color: colors.teal, fontSize: 13, fontWeight: '800' },
   card: {
     flex: 1,
-    backgroundColor: colors.paper,
-    borderRadius: 14,
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    borderRadius: 24,
     borderWidth: 1,
-    borderColor: colors.border,
-    padding: 14,
+    borderColor: 'rgba(255,255,255,0.08)',
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
   },
 });
