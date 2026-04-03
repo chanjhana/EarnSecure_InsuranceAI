@@ -8,7 +8,13 @@ import { updateRiderProfile } from '../../api/ridersClient';
 import { setAuthSession } from '../../store/authStore';
 import { colors } from '../../theme/colors';
 import { AuthChoiceStep } from './AuthChoiceStep';
+import { PhoneOTPStep } from './PhoneOTPStep';
+import { PlatformLinkStep } from './PlatformLinkStep';
+import { PremiumRevealStep } from './PremiumRevealStep';
 import { RiderLoginStep } from './RiderLoginStep';
+import { UPIActivateStep } from './UPIActivateStep';
+import { ZoneShiftStep } from './ZoneShiftStep';
+import { OnboardingState } from './types';
 
 type OnboardingShellProps = {
   step: 1 | 1.5 | 1.75 | 2 | 3 | 4 | 5;

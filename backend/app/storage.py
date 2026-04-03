@@ -8,6 +8,11 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 from uuid import uuid4
 
+# Import the actual business logic services
+from .services.premium_logic import calculate_premium
+from .services.fraud_logic import evaluate_fraud_risk
+from .config import CFG
+
 
 @dataclass
 class RiderRecord:
@@ -162,7 +167,8 @@ class InMemoryStore:
         return week_start, week_end
 
     def issue_otp(self, phone: str) -> str:
-        otp = "".join(random.choices(string.digits, k=6))
+        # For hackathon/demo purposes, hardcode the OTP to 123456 so it's easy to test
+        otp = "123456"
         self.otps[phone] = {"otp": otp, "expires_at": datetime.utcnow() + timedelta(minutes=10)}
         print(f"NEW - OTP : {otp}")  # For development purposes
         # TODO: Integrate OTP SMS API to send OTP via SMS instead of printing
@@ -222,16 +228,27 @@ class InMemoryStore:
         if not rider:
             raise KeyError("rider not found")
 
-        # Dummy premium calculation logic
-        gbr_score = round(random.uniform(0.1, 0.9), 2)
-        cohort_adj = round(random.uniform(-0.15, 0.15), 2)
-        base_premium = 10000
-        premium = int(base_premium * (1 + gbr_score + cohort_adj))
+        # Convert simple rider struct into dictionary for the premium model
+        rider_profile = {
+            "rider_id": rider.rider_id,
+            "pin_code": rider.pin_code,
+            "platform": rider.platform,
+            "zones": rider.zones,
+            "shift_windows": rider.shift_windows,
+            "activity_summary": rider.activity_summary,
+        }
+
+        # Calculate using the integrated logic
+        premium_paise = calculate_premium(rider_profile)
+        
+        # Calculate reverse approximations just to satisfy the schema response
+        gbr_score = (premium_paise / float(CFG.PREMIUM_BASE_PAISE)) - 1.0
+        cohort_adj = 0.0  # Simplification for response interface
 
         return {
-            "premium_paise": premium,
-            "gbr_score": gbr_score,
-            "cohort_adj": cohort_adj,
+            "premium_paise": premium_paise,
+            "gbr_score": round(gbr_score, 2),
+            "cohort_adj": round(cohort_adj, 2),
             "model_inputs": {
                 "pin_code": rider.pin_code or "N/A",
                 "zones": ", ".join(rider.zones),
@@ -348,29 +365,39 @@ class InMemoryStore:
 
         for rider_id in affected_rider_ids:
             amount_map = {
-                "rain": random.randint(30_000, 60_000),
-                "heat": random.randint(40_000, 70_000),
-                "outage": random.randint(30_000, 50_000),
-                "aqi": random.randint(30_000, 40_000),
-                "closure": random.randint(30_000, 40_000),
-                "fog": 30_000,
+                "rain": CFG.PAYOUTS["rain"]["full"],
+                "heat": CFG.PAYOUTS["heat"]["full"],
+                "outage": CFG.PAYOUTS["outage"]["full"],
+                "aqi": CFG.PAYOUTS["aqi"]["full"],
+                "closure": CFG.PAYOUTS["closure"]["full"],
+                "fog": CFG.PAYOUTS["fog"]["full"],
             }
             amount = amount_map.get(trigger_type, 30_000)
-            fraud_score = round(random.uniform(0.1, 0.82), 2)
+            
+            # Use actual fraud detection service instead of random values
+            rider_profile = {
+                "rider_id": rider_id,
+                "pin_code": self.riders[rider_id].pin_code,
+                "shift_windows": self.riders[rider_id].shift_windows,
+                "activity_summary": self.riders[rider_id].activity_summary
+            }
+            event_data = {"zone": pin_code}
+            
+            fraud_score, fraud_checks = evaluate_fraud_risk(
+                claim_type=trigger_type,
+                rider_profile=rider_profile,
+                event_data=event_data
+            )
 
             claim = ClaimRecord(
                 id=f"claim-{uuid4().hex[:10]}",
                 rider_id=rider_id,
                 trigger_type=trigger_type,
                 amount_paise=amount,
-                status="held" if fraud_score >= 0.6 else "paid",
+                status="held" if fraud_score >= CFG.FRAUD_WATCH else "paid",
                 created_at=datetime.utcnow(),
-                fraud_score=fraud_score,
-                fraud_checks={
-                    "online": True,
-                    "order_drop": True,
-                    "gps_zone_match": True,
-                },
+                fraud_score=round(fraud_score, 2),
+                fraud_checks=fraud_checks,
                 trigger_event={
                     "event_id": event.event_id,
                     "metric": metric,
@@ -398,7 +425,75 @@ class InMemoryStore:
         spent = (datetime.utcnow() - policy.week_start).total_seconds()
         return max(0.0, min(1.0, spent / total)) if total else 0.0
 
+    def get_unique_active_pin_codes(self) -> list[str]:
+        pin_codes = set()
+        for rider_id, policy_id in self.rider_policy_index.items():
+            policy = self.policies.get(policy_id)
+            if policy and policy.status == "active":
+                rider = self.riders.get(rider_id)
+                if rider and rider.pin_code:
+                    pin_codes.add(rider.pin_code)
+        return list(pin_codes)
+
+    def fire_trigger(self, trigger_type: str, zone: str, metric: float, threshold: str, affected_rider_ids: list[str]) -> TriggerEventRecord:
+        event = TriggerEventRecord(
+            event_id=f"event-{uuid4().hex[:8]}",
+            trigger_type=trigger_type,
+            zone=zone,
+            metric=metric,
+            threshold=threshold,
+            observed_at=datetime.utcnow(),
+            status="processing",
+            affected_riders=len(affected_rider_ids),
+        )
+        self.trigger_events.append(event)
+        
+        # update event status to paid/held properly based on claims (to be done later if needed, handled by claims generation)
+        return event
+
+    def create_claim_for_rider(self, rider_id: str, trigger_event: TriggerEventRecord, amount_paise: int) -> None:
+        rider_profile = {
+            "rider_id": rider_id,
+            "pin_code": self.riders[rider_id].pin_code,
+            "shift_windows": self.riders[rider_id].shift_windows,
+            "activity_summary": self.riders[rider_id].activity_summary
+        }
+        event_data = {"zone": trigger_event.zone}
+        
+        fraud_score, fraud_checks = evaluate_fraud_risk(
+            claim_type=trigger_event.trigger_type,
+            rider_profile=rider_profile,
+            event_data=event_data
+        )
+
+        claim = ClaimRecord(
+            id=f"claim-{uuid4().hex[:10]}",
+            rider_id=rider_id,
+            trigger_type=trigger_event.trigger_type,
+            amount_paise=amount_paise,
+            status="held" if fraud_score >= CFG.FRAUD_WATCH else "paid",
+            created_at=datetime.utcnow(),
+            fraud_score=round(fraud_score, 2),
+            fraud_checks=fraud_checks,
+            trigger_event={
+                "event_id": trigger_event.event_id,
+                "metric": trigger_event.metric,
+                "threshold": trigger_event.threshold,
+                "zone": trigger_event.zone,
+            },
+        )
+        self.claims[claim.id] = claim
+
+        if claim.status == "held":
+            self.fraud_queue.append(claim.id)
+            trigger_event.status = "held"
+        else:
+            self.weekly_payouts_paise += claim.amount_paise
+            if trigger_event.status != "held":
+                trigger_event.status = "paid"
+
 
 # Type alias used for type hints without importing Pydantic inside storage
 class PlatformActivitySummary(dict):
     pass
+

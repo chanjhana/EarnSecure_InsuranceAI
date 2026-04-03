@@ -39,10 +39,10 @@ export function AuthChoiceStep({ onChooseLogin, onChooseSignup }: AuthChoiceStep
 const styles = StyleSheet.create({
   container: { gap: 20 },
   title: { fontSize: 24, fontWeight: 'bold', textAlign: 'center' },
-  subtitle: { fontSize: 16, color: colors.textSecondary, textAlign: 'center', marginBottom: 8 },
+  subtitle: { fontSize: 16, color: colors.muted, textAlign: 'center', marginBottom: 8 },
   buttonContainer: { gap: 12 },
   button: { marginHorizontal: 0 },
-  signupButton: { backgroundColor: colors.white, borderWidth: 1, borderColor: colors.primary },
-  signupButtonText: { color: colors.primary },
-  helper: { fontSize: 14, color: colors.textSecondary, textAlign: 'center', lineHeight: 20 },
+  signupButton: { backgroundColor: colors.white, borderWidth: 1, borderColor: colors.teal },
+  signupButtonText: { color: colors.teal },
+  helper: { fontSize: 14, color: colors.muted, textAlign: 'center', lineHeight: 20 },
 });
