@@ -88,6 +88,6 @@ async def get_zones(pincode: str) -> dict:
     zones = sorted({name.strip() for name in names if isinstance(name, str) and name.strip()})
 
     if not zones:
-            raise HTTPException(status_code=404, detail="No zones found for this pincode")
+        raise HTTPException(status_code=404, detail="No zones found for this pincode")
 
     return {"zones": zones}

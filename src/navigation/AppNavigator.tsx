@@ -1,149 +1,122 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { useMemo, useState } from 'react';
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
-import { getClaims } from '../api/claimsClient';
-import { Claim } from '../api/claimsClient';
-import { getCurrentPolicy } from '../api/policiesClient';
-import { AdminDashboard } from '../features/admin/AdminDashboard';
-import { AdminLogin } from '../features/admin/AdminLogin';
-import { BottomNav } from '../features/dashboard/BottomNav';
-import { PayoutHistory } from '../features/dashboard/PayoutHistory';
-import { PolicyStatusCard } from '../features/dashboard/PolicyStatusCard';
-import { TriggerMonitor } from '../features/dashboard/TriggerMonitor';
-import { OnboardingShell } from '../features/onboarding/OnboardingShell';
-import { OnboardingState } from '../features/onboarding/types';
-import { colors } from '../theme/colors';
-import { paiseToInr } from '../utils/currency';
-import { RootScreen, RiderTab } from './routes';
+import { DashboardScreen } from '../screens/DashboardScreen';
+import { OTPScreen } from '../screens/OTPScreen';
+import { PhoneEntryScreen } from '../screens/PhoneEntryScreen';
+import { PlatformScreen } from '../screens/PlatformScreen';
+import { PremiumScreen } from '../screens/PremiumScreen';
+import { ProfileScreen } from '../screens/ProfileScreen';
+
+type StackParamList = {
+  PhoneEntry: undefined;
+  OTP: undefined;
+  Profile: undefined;
+  Platform: undefined;
+  Premium: undefined;
+  Dashboard: undefined;
+};
+
+const Stack = createNativeStackNavigator<StackParamList>();
+
+type ShiftKey = 'MORNING' | 'AFTERNOON' | 'EVENING' | 'NIGHT';
 
 export function AppNavigator() {
-  const [screen, setScreen] = useState<RootScreen>('Onboarding');
-  const [onboardingStep, setOnboardingStep] = useState<1 | 1.5 | 1.75 | 2 | 3 | 4 | 5>(1);
-  const [onboardingState, setOnboardingState] = useState<OnboardingState>({});
-  const [adminToken, setAdminToken] = useState<string | null>(null);
+  const [phone, setPhone] = useState('');
+  const [otp, setOtp] = useState('');
+  const [profile, setProfile] = useState({ firstName: '', lastName: '', password: '' });
+  const [platform, setPlatform] = useState<'SWIGGY' | 'ZOMATO'>('SWIGGY');
+  const [riderId, setRiderId] = useState('');
+  const [pinCode, setPinCode] = useState('');
+  const [shifts, setShifts] = useState<ShiftKey[]>(['AFTERNOON']);
+  const [upiId, setUpiId] = useState('');
+  const [premium, setPremium] = useState(74);
 
-  const [riderTab, setRiderTab] = useState<RiderTab>('home');
-  const [policyData, setPolicyData] = useState<Awaited<ReturnType<typeof getCurrentPolicy>> | null>(null);
-  const [claims, setClaims] = useState<Claim[]>([]);
-
-  useEffect(() => {
-    const path = window.location.pathname;
-    if (path === '/admin') {
-      setScreen('AdminDashboard');
-    }
-  }, []);
-
-  useEffect(() => {
-    if (screen !== 'RiderDashboard' || !onboardingState.riderId) return;
-
-    const load = async () => {
-      const [policy, riderClaims] = await Promise.all([getCurrentPolicy(onboardingState.riderId!), getClaims(onboardingState.riderId!)]);
-      setPolicyData(policy);
-      setClaims(riderClaims);
-    };
-
-    load().catch(() => null);
-  }, [screen, onboardingState.riderId]);
-
-  const totalThisWeek = useMemo(() => claims.filter((claim) => claim.status === 'paid' || claim.status === 'approved').reduce((sum, claim) => sum + claim.amount_paise, 0), [claims]);
+  const shiftLabel = useMemo(() => shifts.join(', ') || 'AFTERNOON', [shifts]);
 
   return (
-    <LinearGradient colors={[colors.paper, '#06101f', '#030712']} style={styles.root}>
-      {screen === 'Onboarding' ? (
-        <OnboardingShell
-          step={onboardingStep}
-          onStepChange={setOnboardingStep}
-          state={onboardingState}
-          onStateChange={(next) => setOnboardingState((previous) => ({ ...previous, ...next }))}
-          onCompleted={() => setScreen('RiderDashboard')}
-        />
-      ) : null}
-
-      {screen === 'RiderDashboard' ? (
-        <View style={styles.dashboardWrap}>
-          <View style={styles.dashboardHeader}>
-            <View>
-              <Text style={styles.headline}>Rider dashboard</Text>
-              <Text style={styles.subhead}>Protected week for {onboardingState.phone ?? 'rider'}</Text>
-            </View>
-
-          </View>
-
-          <ScrollView contentContainerStyle={styles.scrollContent}>
-            {policyData && riderTab === 'home' ? (
-              <>
-                <PolicyStatusCard policy={policyData.policy} weekProgress={policyData.week_progress} nextPremium={policyData.next_premium} />
-                <TriggerMonitor triggers={policyData.trigger_statuses} />
-                {claims[0] ? <PayoutHistory riderId={onboardingState.riderId ?? '-'} claims={claims.slice(0, 1)} totalThisWeek={totalThisWeek} /> : null}
-              </>
-            ) : null}
-
-            {riderTab === 'history' ? <PayoutHistory riderId={onboardingState.riderId ?? '-'} claims={claims} totalThisWeek={totalThisWeek} /> : null}
-
-            {policyData && riderTab === 'policy' ? (
-              <View style={styles.policyPanel}>
-                <Text style={styles.policyTitle}>Coverage summary</Text>
-                <Text style={styles.policyLine}>Policy: {policyData.policy.policy_id}</Text>
-                <Text style={styles.policyLine}>Week: {policyData.policy.week_start.slice(0, 10)} to {policyData.policy.week_end.slice(0, 10)}</Text>
-                <Text style={styles.policyLine}>Next premium: {paiseToInr(policyData.next_premium)}</Text>
-                <Text style={styles.policyLine}>UPI: {onboardingState.upiId ?? 'not linked'}</Text>
-              </View>
-            ) : null}
-          </ScrollView>
-
-          <BottomNav active={riderTab} onNavigate={setRiderTab} />
-        </View>
-      ) : null}
-
-      {screen === 'AdminDashboard' ? (
-        adminToken ? (
-          <AdminDashboard
-            defaultPinCode={onboardingState.pinCode ?? '600042'}
-            onBackToRider={() => setScreen('RiderDashboard')}
-          />
-        ) : (
-          <AdminLogin onLogin={setAdminToken} />
-        )
-      ) : null}
-    </LinearGradient>
+    <NavigationContainer>
+      <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName="PhoneEntry">
+        <Stack.Screen name="PhoneEntry">
+          {(props) => (
+            <PhoneEntryScreen
+              phone={phone}
+              onChangePhone={setPhone}
+              onNext={() => props.navigation.navigate('OTP')}
+            />
+          )}
+        </Stack.Screen>
+        <Stack.Screen name="OTP">
+          {(props) => (
+            <OTPScreen
+              phone={phone}
+              otp={otp}
+              onChangeOtp={setOtp}
+              onNext={() => props.navigation.navigate('Profile')}
+              onBack={() => props.navigation.goBack()}
+            />
+          )}
+        </Stack.Screen>
+        <Stack.Screen name="Profile">
+          {(props) => (
+            <ProfileScreen
+              firstName={profile.firstName}
+              lastName={profile.lastName}
+              password={profile.password}
+              onChangeFirstName={(value) => setProfile((prev) => ({ ...prev, firstName: value }))}
+              onChangeLastName={(value) => setProfile((prev) => ({ ...prev, lastName: value }))}
+              onChangePassword={(value) => setProfile((prev) => ({ ...prev, password: value }))}
+              onNext={() => props.navigation.navigate('Platform')}
+              onBack={() => props.navigation.goBack()}
+            />
+          )}
+        </Stack.Screen>
+        <Stack.Screen name="Platform">
+          {(props) => (
+            <PlatformScreen
+              platform={platform}
+              riderId={riderId}
+              pinCode={pinCode}
+              shifts={shifts}
+              onSelectPlatform={setPlatform}
+              onChangeRiderId={setRiderId}
+              onChangePinCode={setPinCode}
+              onToggleShift={(value) =>
+                setShifts((prev) => (prev.includes(value) ? prev.filter((item) => item !== value) : [...prev, value]))
+              }
+              onNext={() => {
+                setPremium(platform === 'SWIGGY' ? 74 : 79);
+                props.navigation.navigate('Premium');
+              }}
+              onBack={() => props.navigation.goBack()}
+            />
+          )}
+        </Stack.Screen>
+        <Stack.Screen name="Premium">
+          {(props) => (
+            <PremiumScreen
+              premium={premium}
+              upiId={upiId}
+              onChangeUpiId={setUpiId}
+              onActivate={() => props.navigation.navigate('Dashboard')}
+              onBack={() => props.navigation.goBack()}
+            />
+          )}
+        </Stack.Screen>
+        <Stack.Screen name="Dashboard">
+          {(props) => (
+            <DashboardScreen
+              riderName={profile.firstName || 'Rider'}
+              shiftLabel={shiftLabel}
+              premium={premium}
+              onNavigateHome={() => props.navigation.navigate('Dashboard')}
+              onNavigateHistory={() => null}
+              onNavigatePolicy={() => null}
+            />
+          )}
+        </Stack.Screen>
+      </Stack.Navigator>
+    </NavigationContainer>
   );
 }
-
-const styles = StyleSheet.create({
-  root: { flex: 1 },
-  dashboardWrap: { flex: 1, paddingTop: 48, backgroundColor: 'transparent' },
-  dashboardHeader: {
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  headline: { fontSize: 26, fontWeight: '900', color: colors.ink, letterSpacing: -0.5 },
-  subhead: { fontSize: 13, color: colors.tealLight, marginTop: 2, fontWeight: '600' },
-  adminButton: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 8,
-    backgroundColor: colors.white,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-  },
-  adminButtonText: { color: colors.ink2, fontSize: 11, fontWeight: '700' },
-  scrollContent: { paddingHorizontal: 16, paddingBottom: 24, gap: 16 },
-  policyPanel: {
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 16,
-    backgroundColor: 'rgba(15, 23, 42, 0.4)',
-    padding: 18,
-    gap: 8,
-    shadowColor: colors.teal,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-  },
-  policyTitle: { fontSize: 15, fontWeight: '700', color: colors.ink2 },
-  policyLine: { fontSize: 12, color: colors.muted },
-});
