@@ -37,6 +37,8 @@ def _trigger_statuses(store: InMemoryStore) -> list[TriggerStatus]:
         TriggerStatus(trigger_type="aqi", threshold_label=">= 300", is_armed=True, last_checked_at=now, state=status_for("aqi")),
         TriggerStatus(trigger_type="closure", threshold_label="FSSAI zone closure", is_armed=True, last_checked_at=now, state=status_for("closure")),
         TriggerStatus(trigger_type="fog", threshold_label="visibility < 50m", is_armed=True, last_checked_at=now, state=status_for("fog")),
+        TriggerStatus(trigger_type="traffic", threshold_label="bbox jam factor >= 1.5", is_armed=True, last_checked_at=now, state=status_for("traffic")),
+        TriggerStatus(trigger_type="roadblock", threshold_label="severe roadblock incidents in zone", is_armed=True, last_checked_at=now, state=status_for("roadblock")),
     ]
 
 

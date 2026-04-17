@@ -1,7 +1,7 @@
 // Onboarding validators.
 
 export function isValidIndianPhone(phone: string): boolean {
-  return /^\+?91[6-9]\d{9}$/.test(phone.replace(/\s+/g, ''));
+  return /^\+?91\d{10}$/.test(phone.replace(/\s+/g, ''));
 }
 
 export function isValidOtp(otp: string): boolean {

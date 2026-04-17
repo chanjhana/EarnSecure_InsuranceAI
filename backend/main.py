@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import admin, auth, claims, health, policies, premium, riders
+from app.routers import admin, auth, claims, health, ivr, payments, policies, premium, riders
 from app.scheduler import start_scheduler, stop_scheduler
 from app.dependencies import get_store
 
@@ -36,6 +36,8 @@ def create_app() -> FastAPI:
 	app.include_router(policies.router)
 	app.include_router(claims.router)
 	app.include_router(admin.router)
+	app.include_router(payments.router)
+	app.include_router(ivr.router)
 
 	return app
 

@@ -2,16 +2,21 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from ..dependencies import get_current_rider_id, get_store
 from ..schemas import (
+    AccountStatusOption,
+    AccountStatusUpdateRequest,
     ClaimDecisionRequest,
+    ConfirmPaymentRequest,
     DemoFireTriggerRequest,
     DemoFireTriggerResponse,
     FraudQueueItem,
+    PaymentRecordResponse,
     PortfolioStats,
+    RiderSearchResult,
     RiderVerificationInfo,
     TriggerEvent,
 )
 from ..storage import InMemoryStore
-from datetime import datetime
+from datetime import datetime, timedelta
 import asyncio
 from ..services.outage_service import fetch_downdetector_reports
 
@@ -38,6 +43,67 @@ def _serialize_trigger_event(event) -> TriggerEvent:
         observed_at=event.observed_at.isoformat(),
         status=event.status,
         affected_riders=event.affected_riders,
+    )
+
+
+def _serialize_payment(record, account_status: str | None = None) -> PaymentRecordResponse:
+    return PaymentRecordResponse(
+        payment_id=record.payment_id,
+        rider_id=record.rider_id,
+        provider=record.provider,
+        status=record.status,
+        amount_paise=record.amount_paise,
+        created_at=record.created_at.isoformat(),
+        updated_at=record.updated_at.isoformat(),
+        upi_uri=record.upi_uri,
+        qr_image_url=record.qr_image_url,
+        upi_transaction_id=record.upi_transaction_id,
+        payer_upi_id=record.payer_upi_id,
+        razorpay_order_id=record.razorpay_order_id,
+        razorpay_payment_id=record.razorpay_payment_id,
+        checkout_key=record.checkout_key,
+        checkout_url=record.checkout_url,
+        account_status=account_status,
+        admin_note=record.admin_note,
+    )
+
+
+def _matches_query(value: str, query: str) -> bool:
+    return query in value.lower()
+
+
+def _serialize_rider_search(rider, store: InMemoryStore) -> RiderSearchResult:
+    now = datetime.utcnow()
+    since = now - timedelta(days=30)
+    claims = [c for c in store.claims.values() if c.rider_id == rider.rider_id and c.created_at >= since]
+
+    claims_d30 = len(claims)
+    paid_claims_d30 = len([c for c in claims if c.status in {"paid", "approved"}])
+    paid_amount_paise_d30 = sum(c.amount_paise for c in claims if c.status in {"paid", "approved"})
+    orders_d30 = int(rider.activity_summary.get("d30_orders", 0)) if rider.activity_summary else 0
+
+    claim_ratio = claims_d30 / max(orders_d30, 1)
+    paid_ratio = paid_claims_d30 / max(claims_d30, 1)
+
+    risk_score = min(0.99, round(0.18 + claim_ratio * 1.5, 3))
+    approval_rate = round(paid_ratio, 3)
+
+    home_zone = rider.zones[0] if rider.zones else (rider.pin_code or "N/A")
+
+    return RiderSearchResult(
+        rider_id=rider.rider_id,
+        name=rider.legal_name or f"Rider {rider.rider_id}",
+        phone=rider.phone,
+        platform=(rider.platform or "unknown"),
+        home_zone=home_zone,
+        orders_d30=orders_d30,
+        claims_d30=claims_d30,
+        paid_claims_d30=paid_claims_d30,
+        paid_amount_paise_d30=paid_amount_paise_d30,
+        risk_score=risk_score,
+        approval_rate=approval_rate,
+        last_seen_at=now.isoformat(),
+        account_status=rider.account_status,
     )
 
 
@@ -80,9 +146,36 @@ async def list_riders_for_verification(
                 is_verified=rider.is_verified,
                 verified_by=rider.verified_by,
                 verified_at=rider.verified_at.isoformat() if rider.verified_at else None,
+                account_status=rider.account_status,
             )
         )
     return riders
+
+
+@router.get("/riders", response_model=list[RiderSearchResult])
+async def search_riders(
+    query: str,
+    store: InMemoryStore = Depends(get_store),
+    _: str = Depends(get_current_rider_id),
+) -> list[RiderSearchResult]:
+    normalized = query.strip().lower()
+    if not normalized:
+        return []
+
+    results: list[RiderSearchResult] = []
+    for rider in store.riders.values():
+        candidates = [
+            rider.rider_id,
+            rider.phone,
+            rider.legal_name or "",
+            rider.vehicle_number or "",
+            rider.platform or "",
+        ]
+        if any(_matches_query(value, normalized) for value in candidates if value):
+            results.append(_serialize_rider_search(rider, store))
+
+    results.sort(key=lambda item: item.risk_score, reverse=True)
+    return results
 
 
 @router.post("/riders/{rider_id}/verify")
@@ -103,6 +196,68 @@ async def verify_rider(
     rider.verified_by = admin_id
     rider.verified_at = datetime.utcnow()
     return {"verified": True}
+
+
+@router.get("/account-status-options", response_model=list[AccountStatusOption])
+async def account_status_options(
+    store: InMemoryStore = Depends(get_store),
+    _: str = Depends(get_current_rider_id),
+) -> list[AccountStatusOption]:
+    return [AccountStatusOption(**option) for option in store.list_account_status_options()]
+
+
+@router.get("/payments/pending", response_model=list[PaymentRecordResponse])
+async def pending_payments(
+    store: InMemoryStore = Depends(get_store),
+    _: str = Depends(get_current_rider_id),
+) -> list[PaymentRecordResponse]:
+    rows = []
+    for record in store.list_pending_payments():
+        rider = store.riders.get(record.rider_id)
+        rows.append(_serialize_payment(record, rider.account_status if rider else None))
+    return rows
+
+
+@router.post("/payments/{payment_id}/confirm", response_model=PaymentRecordResponse)
+async def confirm_payment(
+    payment_id: str,
+    payload: ConfirmPaymentRequest,
+    store: InMemoryStore = Depends(get_store),
+    admin_id: str = Depends(get_current_rider_id),
+) -> PaymentRecordResponse:
+    try:
+        payment = store.confirm_payment(
+            payment_id=payment_id,
+            admin_id=admin_id,
+            approve=payload.approve,
+            admin_note=payload.admin_note,
+            account_status=payload.account_status,
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="payment not found") from exc
+
+    rider = store.riders.get(payment.rider_id)
+    return _serialize_payment(payment, rider.account_status if rider else None)
+
+
+@router.post("/riders/{rider_id}/account-status")
+async def set_rider_account_status(
+    rider_id: str,
+    payload: AccountStatusUpdateRequest,
+    store: InMemoryStore = Depends(get_store),
+    _: str = Depends(get_current_rider_id),
+) -> dict:
+    try:
+        rider = store.set_rider_account_status(rider_id, payload.account_status, payload.note)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Rider not found") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {
+        "updated": True,
+        "rider_id": rider.rider_id,
+        "account_status": rider.account_status,
+    }
 
 
 @router.post("/claims/{claim_id}/approve")

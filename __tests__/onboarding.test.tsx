@@ -6,6 +6,7 @@ import { AppNavigator } from '../src/navigation/AppNavigator';
 jest.mock('../src/api/authClient', () => ({
 	sendOtp: jest.fn(async () => ({ sent: true, otp: '123456' })),
 	verifyOtp: jest.fn(async () => ({ access_token: 'token-1', rider_id: 'rider-1' })),
+	completeSignup: jest.fn(async () => ({ success: true })),
 }));
 
 jest.mock('../src/api/ridersClient', () => ({
@@ -16,18 +17,59 @@ jest.mock('../src/api/ridersClient', () => ({
 
 jest.mock('../src/api/premiumClient', () => ({
 	calculatePremium: jest.fn(async () => ({
-		premium_paise: 6800,
-		gbr_score: 0.66,
-		cohort_adj: 0.1,
-		model_inputs: { shift_window: 'morning', zone_disruption_score: 7 },
-		covers: [
-			{ type: 'rain', min_paise: 30000, max_paise: 60000 },
-			{ type: 'heat', min_paise: 40000, max_paise: 70000 },
-			{ type: 'outage', min_paise: 30000, max_paise: 50000 },
-			{ type: 'aqi', min_paise: 30000, max_paise: 40000 },
-			{ type: 'closure', min_paise: 30000, max_paise: 40000 },
-			{ type: 'fog', min_paise: 30000, max_paise: 30000 },
-		],
+		weekly_premium_paise: 6800,
+		weekly_premium_inr: 68,
+		risk_score: 0.42,
+		breakdown: {
+			weather_risk: {
+				rain_probability: 0.6,
+				max_rainfall_mm: 48,
+				max_heat_index: 39,
+				min_visibility_m: 900,
+				rainy_days: 3,
+				contribution: 0.22,
+			},
+			traffic_risk: { jam_factor: 1.7, contribution: 0.1 },
+			shift_risk: { shifts: ['afternoon'], contribution: 0.05 },
+			zone_risk: { zone_count: 2, contribution: 0.05 },
+		},
+		city_name: 'Coimbatore',
+		forecast_source: 'mock',
+		model: 'GBR-weather-v3-traffic',
+	})),
+}));
+
+jest.mock('../src/api/paymentsClient', () => ({
+	createUpiQrPayment: jest.fn(async () => ({
+		payment_id: 'pay-1',
+		rider_id: 'rider-1',
+		provider: 'upi_qr',
+		status: 'initiated',
+		amount_paise: 6800,
+		created_at: '2026-04-02T10:00:00',
+		updated_at: '2026-04-02T10:00:00',
+		qr_image_url: 'https://example.com/qr.png',
+	})),
+	submitUpiQrTransaction: jest.fn(async () => ({
+		payment_id: 'pay-1',
+		rider_id: 'rider-1',
+		provider: 'upi_qr',
+		status: 'pending_admin_confirmation',
+		amount_paise: 6800,
+		created_at: '2026-04-02T10:00:00',
+		updated_at: '2026-04-02T10:05:00',
+		upi_transaction_id: 'UPIREF123',
+		payer_upi_id: 'ravi.kumar@upi',
+	})),
+	createRazorpayOrder: jest.fn(async () => ({
+		payment_id: 'pay-rzp-1',
+		rider_id: 'rider-1',
+		provider: 'razorpay',
+		status: 'initiated',
+		amount_paise: 6800,
+		created_at: '2026-04-02T10:00:00',
+		updated_at: '2026-04-02T10:00:00',
+		checkout_url: 'https://checkout.razorpay.com',
 	})),
 }));
 
@@ -81,33 +123,40 @@ describe('App onboarding to dashboard integration', () => {
 	it('completes full onboarding and lands on rider dashboard', async () => {
 		const screen = render(<AppNavigator />);
 
-		fireEvent.changeText(screen.getByPlaceholderText('+91 98765 43210'), '+91 98765 43210');
-		fireEvent.press(screen.getByText('Send OTP'));
+		fireEvent.changeText(screen.getByPlaceholderText('98765 43210'), '9876543210');
+		fireEvent.press(screen.getByText('Send OTP →'));
 
-		await waitFor(() => screen.getByPlaceholderText('000000'));
-		fireEvent.changeText(screen.getByPlaceholderText('000000'), '123456');
-		fireEvent.press(screen.getByText('Verify'));
+		await waitFor(() => screen.getByLabelText('OTP digit 1'));
+		fireEvent.changeText(screen.getByLabelText('OTP digit 1'), '1');
+		fireEvent.changeText(screen.getByLabelText('OTP digit 2'), '2');
+		fireEvent.changeText(screen.getByLabelText('OTP digit 3'), '3');
+		fireEvent.changeText(screen.getByLabelText('OTP digit 4'), '4');
+		fireEvent.changeText(screen.getByLabelText('OTP digit 5'), '5');
+		fireEvent.changeText(screen.getByLabelText('OTP digit 6'), '6');
+		fireEvent.press(screen.getByText('Verify & Continue →'));
 
-		await waitFor(() => screen.getByText('Which platform do you ride for?'));
+		await waitFor(() => screen.getByText(/Quick setup/i));
+		fireEvent.changeText(screen.getByPlaceholderText('Ravi'), 'Ravi');
+		fireEvent.changeText(screen.getByPlaceholderText('Kumar'), 'Kumar');
+		fireEvent.changeText(screen.getByPlaceholderText('TN 09 AB 1234'), 'TN09AB1234');
+		fireEvent.changeText(screen.getByPlaceholderText('Create password'), 'pass1234');
+		fireEvent.press(screen.getByText('Continue →'));
+
+		await waitFor(() => screen.getByText(/Where do you/i));
 		fireEvent.changeText(screen.getByPlaceholderText('SWG-CHN-291847'), 'SWG-CHN-291847');
-		fireEvent.press(screen.getByText('Verify and Continue'));
-
-		await waitFor(() => screen.getByText('Where do you usually ride?'));
-		fireEvent.changeText(screen.getByPlaceholderText('600042'), '600042');
-		await waitFor(() => screen.getByText('Mettupalayam'));
-		fireEvent.press(screen.getByText('Mettupalayam'));
-		fireEvent.press(screen.getByText('MORNING'));
-		fireEvent.press(screen.getByText('Continue'));
+		fireEvent.changeText(screen.getByPlaceholderText('600042 — zones auto-load'), '600042');
+		fireEvent.press(screen.getByText('Calculate My Premium →'));
 
 		await waitFor(() => screen.getByText('Your weekly premium'));
-		fireEvent.press(screen.getByText('Activate coverage'));
-
-		await waitFor(() => screen.getByText('Where should we send payouts?'));
 		fireEvent.changeText(screen.getByPlaceholderText('ravi.kumar@upi'), 'ravi.kumar@upi');
-		fireEvent.press(screen.getByText('Pay and Activate'));
+		fireEvent.press(screen.getByText('Scan & Pay UPI QR - ₹68'));
 
-		await waitFor(() => screen.getByText('Rider dashboard'));
-		fireEvent.press(screen.getByText('History'));
-		await waitFor(() => screen.getByText('Payout history'));
+		await waitFor(() => screen.getByPlaceholderText('UPI transaction/reference ID'));
+		fireEvent.changeText(screen.getByPlaceholderText('UPI transaction/reference ID'), 'UPIREF123');
+		fireEvent.press(screen.getByText('Submit Transaction ID'));
+
+		await waitFor(() => screen.getByText(/Rider dashboard/i));
+		expect(screen.getByText('History')).toBeTruthy();
+		screen.unmount();
 	});
 });

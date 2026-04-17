@@ -42,6 +42,8 @@ async def complete_signup(payload: RiderInfoRequest, store: InMemoryStore = Depe
     rider.legal_name = payload.legal_name
     rider.vehicle_number = payload.vehicle_number
     rider.password_hash = hash_password(payload.password)
+    rider.account_flags["profile_completed"] = True
+    rider.account_status = "O3_PROFILE_COMPLETED"
     return {"success": True}
 
 

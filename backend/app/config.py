@@ -23,6 +23,24 @@ class _Config:
 
     # ── External API keys ───────────────────────────────────────────
     OPENWEATHERMAP_API_KEY: str = os.getenv("OPENWEATHERMAP_API_KEY", "")
+    TOMTOM_API_KEY: str = os.getenv("TOMTOM_API_KEY", "")
+
+    # ── Razorpay / UPI fallback configuration ───────────────────────
+    RAZORPAY_KEY_ID: str = os.getenv("RAZORPAY_KEY_ID", "rzp_test_example_key")
+    RAZORPAY_KEY_SECRET: str = os.getenv("RAZORPAY_KEY_SECRET", "razorpay_test_secret_placeholder")
+    RAZORPAY_COMPANY_NAME: str = os.getenv("RAZORPAY_COMPANY_NAME", "EarnSecure Insurance")
+    RAZORPAY_CURRENCY: str = os.getenv("RAZORPAY_CURRENCY", "INR")
+    RAZORPAY_CHECKOUT_BASE_URL: str = os.getenv("RAZORPAY_CHECKOUT_BASE_URL", "https://checkout.razorpay.com/v1/checkout.js")
+
+    UPI_PAYEE_VPA: str = os.getenv("UPI_PAYEE_VPA", "earnsecure.demo@okaxis")
+    UPI_PAYEE_NAME: str = os.getenv("UPI_PAYEE_NAME", "EarnSecure Insurance")
+
+    # ── Twilio IVR (voice) ─────────────────────────────────────────
+    TWILIO_ACCOUNT_SID: str = os.getenv("TWILIO_ACCOUNT_SID", "")
+    TWILIO_AUTH_TOKEN: str = os.getenv("TWILIO_AUTH_TOKEN", "")
+    TWILIO_FROM_PHONE: str = os.getenv("TWILIO_FROM_PHONE", "")
+    TWILIO_VOICE_FROM_PHONE: str = os.getenv("TWILIO_VOICE_FROM_PHONE", os.getenv("TWILIO_FROM_PHONE", ""))
+    TWILIO_WEBHOOK_BASE_URL: str = os.getenv("TWILIO_WEBHOOK_BASE_URL", "https://example.ngrok-free.app")
 
     # ── Parametric trigger thresholds (from README §6) ──────────────
     RAIN_THRESHOLD_MM: float = 64.5        # daily rainfall
@@ -32,6 +50,11 @@ class _Config:
     OUTAGE_THRESHOLD_MIN: int = 30         # platform down minutes
     FOG_VISIBILITY_M: int = 50             # visibility in metres
     FSSAI_CLOSURE_COUNT: int = 8           # restaurants sealed in zone
+    TRAFFIC_JAM_FACTOR_THRESHOLD: float = float(os.getenv("TRAFFIC_JAM_FACTOR_THRESHOLD", "1.5"))
+    TRAFFIC_ROADBLOCK_THRESHOLD: int = int(os.getenv("TRAFFIC_ROADBLOCK_THRESHOLD", "1"))
+    TRAFFIC_TREATMENT_WINDOW_HOURS: int = int(os.getenv("TRAFFIC_TREATMENT_WINDOW_HOURS", "6"))
+    TRAFFIC_MOTION_DROP_THRESHOLD: float = float(os.getenv("TRAFFIC_MOTION_DROP_THRESHOLD", "0.6"))
+    TRAFFIC_MOTION_WINDOW_MINUTES: int = int(os.getenv("TRAFFIC_MOTION_WINDOW_MINUTES", "25"))
 
     # ── Payout amounts (paise) — Basic / Full tiers ────────────────
     PAYOUTS: dict[str, dict[str, int]] = {
@@ -41,6 +64,8 @@ class _Config:
         "outage":  {"basic": 30_000, "full": 50_000},
         "closure": {"basic": 40_000, "full": 40_000},
         "fog":     {"basic": 30_000, "full": 30_000},
+        "traffic": {"basic": 30_000, "full": 45_000},
+        "roadblock": {"basic": 35_000, "full": 50_000},
     }
 
     # ── Premium bounds (paise) — ₹25 to ₹150 per week ─────────────

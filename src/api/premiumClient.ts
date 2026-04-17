@@ -19,6 +19,12 @@ export type PremiumBreakdown = {
   };
 };
 
+export type TriggerCoverage = {
+  type: 'rain' | 'heat' | 'outage' | 'aqi' | 'closure' | 'fog' | 'traffic' | 'roadblock';
+  min_paise: number;
+  max_paise: number;
+};
+
 export type PremiumResponse = {
   weekly_premium_paise: number;
   weekly_premium_inr: number;

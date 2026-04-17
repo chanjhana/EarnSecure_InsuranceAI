@@ -1,9 +1,15 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Animated, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import { Claim } from '../api/claimsClient';
+import { usePolicy } from '../hooks/usePolicy';
+import { payoutService } from '../services/payoutService';
 import { colors, spacing } from '../theme/theme';
+import { paiseToInr } from '../utils/currency';
+import { formatDateTime } from '../utils/date';
 
 type DashboardScreenProps = {
+  riderId: string;
   riderName: string;
   shiftLabel: string;
   premium: number;
@@ -13,6 +19,7 @@ type DashboardScreenProps = {
 };
 
 export function DashboardScreen({
+  riderId,
   riderName,
   shiftLabel,
   premium,
@@ -21,6 +28,41 @@ export function DashboardScreen({
   onNavigatePolicy,
 }: DashboardScreenProps) {
   const greeting = useMemo(() => `GOOD AFTERNOON, ${riderName.toUpperCase()} ☀️`, [riderName]);
+  const { data } = usePolicy(riderId);
+  const [claims, setClaims] = useState<Claim[]>([]);
+  const [weeklyTotal, setWeeklyTotal] = useState(0);
+
+  useEffect(() => {
+    if (!riderId) return;
+
+    let active = true;
+    const load = async () => {
+      try {
+        const result = await payoutService.getClaims(riderId);
+        const total = await payoutService.getWeeklyTotal(riderId);
+        if (!active) return;
+        setClaims(result);
+        setWeeklyTotal(total);
+      } catch {
+        if (!active) return;
+        setClaims([]);
+        setWeeklyTotal(0);
+      }
+    };
+
+    load();
+    return () => {
+      active = false;
+    };
+  }, [riderId]);
+
+  const policy = data?.policy ?? null;
+  const weekProgress = data?.week_progress ?? 0;
+  const nextPremiumPaise = data?.next_premium ?? Math.round(premium * 100);
+  const progressPercent = Math.round(weekProgress * 100);
+  const latestClaim = claims[0];
+  const payoutLabel = paiseToInr(weeklyTotal || 0);
+  const nextPremiumLabel = paiseToInr(nextPremiumPaise);
 
   return (
     <SafeAreaView style={styles.root} accessible accessibilityLabel="Rider dashboard screen">
@@ -28,7 +70,7 @@ export function DashboardScreen({
         <View style={styles.header}>
           <Text style={styles.greeting}>{greeting}</Text>
           <Text style={styles.title}>Rider dashboard</Text>
-          <Text style={styles.subtitle}>Week of Apr 1 – Apr 7 · Policy active · {shiftLabel}</Text>
+          <Text style={styles.subtitle}>{policy ? `Policy ${policy.status} · ${shiftLabel}` : `No active policy · ${shiftLabel}`}</Text>
         </View>
 
         <View style={styles.tabRow}>
@@ -51,24 +93,24 @@ export function DashboardScreen({
             <View>
               <View style={styles.policyStatus}>
                 <Animated.View style={styles.statusDot} />
-                <Text style={styles.statusText}>ACTIVE COVERAGE</Text>
+                <Text style={styles.statusText}>{policy ? `${policy.status.toUpperCase()} COVERAGE` : 'NO COVERAGE'}</Text>
               </View>
-              <Text style={styles.policyPremium}>₹600</Text>
+              <Text style={styles.policyPremium}>{payoutLabel}</Text>
               <Text style={styles.policyWeek}>Paid out this week</Text>
             </View>
             <View style={styles.policyRight}>
               <Text style={styles.policyCaption}>Next debit</Text>
-              <Text style={styles.nextPremium}>₹{premium}</Text>
-              <Text style={styles.policyCaption}>Mon, Apr 7</Text>
+              <Text style={styles.nextPremium}>{nextPremiumLabel}</Text>
+              <Text style={styles.policyCaption}>{policy ? formatDateTime(policy.week_end) : 'Pending activation'}</Text>
             </View>
           </View>
           <View style={styles.progressWrap}>
             <View style={styles.progressLabelRow}>
               <Text style={styles.progressLabel}>Week progress</Text>
-              <Text style={styles.progressLabel}>40%</Text>
+              <Text style={styles.progressLabel}>{progressPercent}%</Text>
             </View>
             <View style={styles.progressBar}>
-              <View style={[styles.progressFill, { width: '40%' }]} />
+              <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
             </View>
           </View>
         </View>
@@ -104,12 +146,12 @@ export function DashboardScreen({
           <Text style={styles.sectionTitle}>Recent payouts</Text>
           <View style={styles.claimRow}>
           <View>
-            <Text style={styles.claimType}>🌧 RAIN TRIGGER</Text>
-            <Text style={styles.claimDate}>Apr 2, 2026 · 11:00 AM</Text>
+            <Text style={styles.claimType}>{latestClaim ? `${latestClaim.trigger_type.toUpperCase()} TRIGGER` : 'NO PAYOUTS YET'}</Text>
+            <Text style={styles.claimDate}>{latestClaim ? formatDateTime(latestClaim.created_at) : 'Check back after triggers fire'}</Text>
           </View>
           <View style={styles.claimRight}>
-            <Text style={styles.claimAmount}>₹500</Text>
-            <Text style={styles.claimBadge}>AUTO-PAID</Text>
+            <Text style={styles.claimAmount}>{latestClaim ? paiseToInr(latestClaim.amount_paise) : '₹0'}</Text>
+            <Text style={styles.claimBadge}>{latestClaim ? latestClaim.status.toUpperCase() : 'NO CLAIMS'}</Text>
           </View>
           </View>
         </View>

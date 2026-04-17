@@ -7,10 +7,12 @@ type PhoneEntryScreenProps = {
   phone: string;
   onChangePhone: (value: string) => void;
   onNext: () => void;
+  sending?: boolean;
+  error?: string | null;
 };
 
-export function PhoneEntryScreen({ phone, onChangePhone, onNext }: PhoneEntryScreenProps) {
-  const displayPhone = useMemo(() => phone || '98765 43210', [phone]);
+export function PhoneEntryScreen({ phone, onChangePhone, onNext, sending = false, error }: PhoneEntryScreenProps) {
+  const displayPhone = useMemo(() => phone.replace('+91 ', '') || '98765 43210', [phone]);
 
   return (
     <SafeAreaView style={styles.root} accessible accessibilityLabel="Phone entry screen">
@@ -45,17 +47,25 @@ export function PhoneEntryScreen({ phone, onChangePhone, onNext }: PhoneEntryScr
                 placeholder="98765 43210"
                 placeholderTextColor={colors.borderStrong}
                 keyboardType="phone-pad"
-                maxLength={12}
-                value={phone}
-                onChangeText={onChangePhone}
+                maxLength={11}
+                value={phone.replace('+91 ', '')}
+                onChangeText={(text) => onChangePhone('+91 ' + text)}
                 accessible
                 accessibilityLabel="Mobile number"
               />
             </View>
 
-            <TouchableOpacity style={styles.primaryButton} onPress={onNext} accessible accessibilityLabel="Send OTP">
-              <Text style={styles.primaryButtonText}>Send OTP →</Text>
+            <TouchableOpacity
+              style={[styles.primaryButton, sending ? styles.primaryButtonDisabled : null]}
+              onPress={onNext}
+              disabled={sending}
+              accessible
+              accessibilityLabel="Send OTP"
+            >
+              <Text style={styles.primaryButtonText}>{sending ? 'Sending...' : 'Send OTP →'}</Text>
             </TouchableOpacity>
+
+            {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
             <View style={styles.poweredWrap}>
               <Text style={styles.poweredLabel}>POWERED BY</Text>
@@ -168,7 +178,9 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     alignItems: 'center',
   },
+  primaryButtonDisabled: { opacity: 0.6 },
   primaryButtonText: { color: colors.background, fontSize: 15, fontWeight: '800', letterSpacing: 0.3 },
+  errorText: { color: colors.coral, fontSize: 12, marginTop: spacing.sm, textAlign: 'center' },
   poweredWrap: { marginTop: spacing.lg },
   poweredLabel: { fontSize: 10, color: colors.borderStrong, textAlign: 'center', marginBottom: spacing.sm },
   badgeRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center' },

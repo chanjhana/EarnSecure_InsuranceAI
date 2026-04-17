@@ -54,7 +54,16 @@ export function OnboardingShell({ step, onStepChange, state, onStateChange, onCo
       </View>
 
       <View style={styles.card}>
+        {/* Restored AuthChoiceStep to act as the true entrypoint */}
         {step === 1 ? (
+          <AuthChoiceStep
+            onChooseLogin={() => goNext(1.75)}
+            onChooseSignup={() => goNext(1.5)}
+          />
+        ) : null}
+
+        {/* Mapped PhoneOTPStep to Step 1.5 */}
+        {step === 1.5 ? (
           <PhoneOTPStep
             onVerified={(payload) => {
               setAuthSession(payload.jwt, payload.riderId);
@@ -63,21 +72,16 @@ export function OnboardingShell({ step, onStepChange, state, onStateChange, onCo
                 token: payload.jwt,
                 riderId: payload.riderId,
               });
-              goNext(1.5);
+              goNext(2);
             }}
+            onSwitchToLogin={() => goNext(1.75)}
           />
         ) : null}
 
-        {step === 1.5 ? (
-          <AuthChoiceStep
-            onChooseLogin={() => goNext(1.75)}
-            onChooseSignup={() => goNext(2)}
-          />
-        ) : null}
-
+        {/* Existing RiderLoginStep mapped cleanly to Step 1.75 */}
         {step === 1.75 ? (
           <RiderLoginStep
-            phone={state.phone!}
+            phone={state.phone}
             onLogin={(payload) => {
               setAuthSession(payload.jwt, payload.riderId);
               onStateChange({
@@ -86,7 +90,7 @@ export function OnboardingShell({ step, onStepChange, state, onStateChange, onCo
               });
               onCompleted(); // Skip onboarding for existing users
             }}
-            onSwitchToSignup={() => goNext(2)}
+            onSwitchToSignup={() => goNext(1.5)}
           />
         ) : null}
 
@@ -147,7 +151,7 @@ export function OnboardingShell({ step, onStepChange, state, onStateChange, onCo
         {step === 4 && state.premiumPaise !== undefined ? (
           <PremiumRevealStep
             premium={state.premiumPaise}
-            modelInputs={state.premiumModelInputs ?? {}}
+            modelInputs={(state.premiumModelInputs as any) ?? ({} as any)}
             covers={state.covers ?? []}
             onAccept={() => goNext(5)}
           />

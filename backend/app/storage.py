@@ -12,7 +12,48 @@ from uuid import uuid4
 from .services.premium_logic import calculate_premium
 from .services.fraud_logic import evaluate_fraud_risk
 from .services.notification_service import send_claim_sms
+from .services.payment_service import payment_service
 from .config import CFG
+
+
+ACCOUNT_STATUS_OPTIONS = {
+    "O1_OTP_SENT_NOT_VERIFIED": {
+        "label": "OTP Sent, Not Verified",
+        "description": "Rider OTP was issued but phone verification is still pending.",
+    },
+    "O2_OTP_VERIFIED_PROFILE_PENDING": {
+        "label": "OTP Verified, Profile Pending",
+        "description": "Phone is verified, but profile details are incomplete.",
+    },
+    "O3_PROFILE_COMPLETED": {
+        "label": "Profile Completed",
+        "description": "Rider profile and credentials are completed.",
+    },
+    "O4_PLATFORM_LINKED": {
+        "label": "Platform Linked",
+        "description": "Platform account and work zones are linked.",
+    },
+    "O5_POLICY_ACTIVE_PAYMENT_PENDING": {
+        "label": "Policy Active, Payment Pending",
+        "description": "Policy is active while payment confirmation is pending.",
+    },
+    "O6_PAYMENT_SUBMITTED_ADMIN_REVIEW": {
+        "label": "Payment Submitted, Admin Review",
+        "description": "User submitted UPI transaction details for admin verification.",
+    },
+    "O7_PAYMENT_CONFIRMED_WEEK_ACTIVE": {
+        "label": "Payment Confirmed, Week Active",
+        "description": "Payment is admin-confirmed and account is active for the week.",
+    },
+    "O8_PAYMENT_REJECTED_ACTION_REQUIRED": {
+        "label": "Payment Rejected, Action Required",
+        "description": "Submitted payment details were rejected and rider action is required.",
+    },
+    "O9_ACCOUNT_SUSPENDED": {
+        "label": "Account Suspended",
+        "description": "Account access suspended by admin risk controls.",
+    },
+}
 
 
 @dataclass
@@ -31,6 +72,12 @@ class RiderRecord:
     shift_windows: List[str] = field(default_factory=list)
     upi_id: Optional[str] = None
     activity_summary: Dict[str, object] = field(default_factory=dict)
+    account_status: str = "O1_OTP_SENT_NOT_VERIFIED"
+    account_flags: Dict[str, bool] = field(default_factory=dict)
+    account_note: Optional[str] = None
+    phone_verified_at: Optional[datetime] = None
+    payment_submitted_at: Optional[datetime] = None
+    payment_confirmed_at: Optional[datetime] = None
 
 
 @dataclass
@@ -68,6 +115,28 @@ class TriggerEventRecord:
     affected_riders: int
 
 
+@dataclass
+class PaymentRecord:
+    payment_id: str
+    rider_id: str
+    provider: str
+    amount_paise: int
+    status: str
+    created_at: datetime
+    updated_at: datetime
+    upi_uri: Optional[str] = None
+    qr_image_url: Optional[str] = None
+    upi_transaction_id: Optional[str] = None
+    payer_upi_id: Optional[str] = None
+    razorpay_order_id: Optional[str] = None
+    razorpay_payment_id: Optional[str] = None
+    checkout_key: Optional[str] = None
+    checkout_url: Optional[str] = None
+    admin_note: Optional[str] = None
+    confirmed_by: Optional[str] = None
+    confirmed_at: Optional[datetime] = None
+
+
 class InMemoryStore:
     """Deliberately simple storage to make the API demo-friendly."""
 
@@ -76,6 +145,7 @@ class InMemoryStore:
         self.riders: Dict[str, RiderRecord] = {}
         self.policies: Dict[str, PolicyRecord] = {}
         self.claims: Dict[str, ClaimRecord] = {}
+        self.payments: Dict[str, PaymentRecord] = {}
         self.rider_policy_index: Dict[str, str] = {}
         self.fraud_queue: List[str] = []
         self.trigger_events: List[TriggerEventRecord] = []
@@ -87,12 +157,23 @@ class InMemoryStore:
         rider = RiderRecord(
             rider_id="rider-001",
             phone="+91 90000 11111",
+            is_verified=True,
             platform="swiggy",
             pin_code="560034",
             zones=["Koramangala", "HSR"],
             shift_windows=["evening"],
             upi_id="ravi@upi",
             activity_summary={"d30_orders": 228, "avg_daily": 7.6, "zones": ["Koramangala", "HSR"]},
+            account_status="O7_PAYMENT_CONFIRMED_WEEK_ACTIVE",
+            account_flags={
+                "otp_sent": True,
+                "otp_verified": True,
+                "profile_completed": True,
+                "platform_linked": True,
+                "payment_confirmed": True,
+            },
+            phone_verified_at=datetime.utcnow() - timedelta(days=30),
+            payment_confirmed_at=datetime.utcnow() - timedelta(days=2),
         )
         self.riders[rider.rider_id] = rider
 
@@ -171,6 +252,9 @@ class InMemoryStore:
         # For hackathon/demo purposes, hardcode the OTP to 123456 so it's easy to test
         otp = "123456"
         self.otps[phone] = {"otp": otp, "expires_at": datetime.utcnow() + timedelta(minutes=10)}
+        rider = self.ensure_rider(self._get_or_create_rider(phone), phone)
+        rider.account_flags["otp_sent"] = True
+        rider.account_status = "O1_OTP_SENT_NOT_VERIFIED"
         print(f"NEW - OTP : {otp}")  # For development purposes
         # TODO: Integrate OTP SMS API to send OTP via SMS instead of printing
         return otp
@@ -180,6 +264,10 @@ class InMemoryStore:
         if not record or record["otp"] != otp or record["expires_at"] < datetime.utcnow():
             raise ValueError("Invalid or expired OTP")
         rider_id = self._get_or_create_rider(phone)
+        rider = self.riders[rider_id]
+        rider.account_flags["otp_verified"] = True
+        rider.account_status = "O2_OTP_VERIFIED_PROFILE_PENDING"
+        rider.phone_verified_at = datetime.utcnow()
         return rider_id
 
     def _get_or_create_rider(self, phone: str) -> str:
@@ -187,7 +275,12 @@ class InMemoryStore:
             if rider.phone == phone:
                 return rider.rider_id
         new_id = f"rider-{len(self.riders) + 1:03d}"
-        self.riders[new_id] = RiderRecord(rider_id=new_id, phone=phone)
+        self.riders[new_id] = RiderRecord(
+            rider_id=new_id,
+            phone=phone,
+            account_status="O1_OTP_SENT_NOT_VERIFIED",
+            account_flags={"otp_sent": True},
+        )
         return new_id
 
     def ensure_rider(self, rider_id: str, phone: Optional[str] = None) -> RiderRecord:
@@ -207,6 +300,8 @@ class InMemoryStore:
         if not rider:
             raise KeyError("rider not found")
         rider.platform = platform
+        rider.account_flags["platform_linked"] = True
+        rider.account_status = "O4_PLATFORM_LINKED"
         summary = {
             "d30_orders": random.randint(120, 260),
             "avg_daily": round(random.uniform(5.0, 9.5), 1),
@@ -223,6 +318,11 @@ class InMemoryStore:
         rider.zones = zones
         rider.shift_windows = shift_windows
         rider.upi_id = upi_id or rider.upi_id
+        rider.account_flags["profile_completed"] = True
+        if rider.upi_id:
+            rider.account_flags["upi_linked"] = True
+        if rider.account_status in {"O1_OTP_SENT_NOT_VERIFIED", "O2_OTP_VERIFIED_PROFILE_PENDING", "O3_PROFILE_COMPLETED"}:
+            rider.account_status = "O4_PLATFORM_LINKED"
 
     def calculate_premium(self, rider_id: str) -> dict:
         rider = self.riders.get(rider_id)
@@ -269,6 +369,9 @@ class InMemoryStore:
         if not rider:
             raise KeyError("rider not found")
         rider.upi_id = upi_id
+        rider.account_flags["upi_linked"] = True
+        rider.account_flags["policy_active"] = True
+        rider.account_status = "O5_POLICY_ACTIVE_PAYMENT_PENDING"
         week_start, week_end = self._current_week_bounds()
         policy = PolicyRecord(
             policy_id=str(uuid4()),
@@ -296,6 +399,151 @@ class InMemoryStore:
         if not claim:
             raise KeyError("claim not found")
         return claim
+
+    def list_account_status_options(self) -> list[dict[str, str]]:
+        options: list[dict[str, str]] = []
+        for code, meta in ACCOUNT_STATUS_OPTIONS.items():
+            options.append(
+                {
+                    "code": code,
+                    "label": meta["label"],
+                    "description": meta["description"],
+                }
+            )
+        return options
+
+    def set_rider_account_status(self, rider_id: str, account_status: str, note: Optional[str] = None) -> RiderRecord:
+        rider = self.riders.get(rider_id)
+        if not rider:
+            raise KeyError("rider not found")
+        if account_status not in ACCOUNT_STATUS_OPTIONS:
+            raise ValueError("invalid account status")
+        rider.account_status = account_status
+        rider.account_note = note
+        return rider
+
+    def create_upi_qr_payment(self, rider_id: str, upi_id: str, amount_paise: int, note: Optional[str] = None) -> PaymentRecord:
+        rider = self.riders.get(rider_id)
+        if not rider:
+            raise KeyError("rider not found")
+
+        rider.upi_id = upi_id
+        rider.account_flags["upi_linked"] = True
+
+        now = datetime.utcnow()
+        payment_id = f"pay-{uuid4().hex[:12]}"
+        upi_uri = payment_service.build_upi_uri(transaction_ref=payment_id, amount_paise=amount_paise, note=note)
+        qr_image_url = payment_service.build_qr_image_url(upi_uri)
+
+        payment = PaymentRecord(
+            payment_id=payment_id,
+            rider_id=rider_id,
+            provider="upi_qr",
+            amount_paise=amount_paise,
+            status="initiated",
+            created_at=now,
+            updated_at=now,
+            upi_uri=upi_uri,
+            qr_image_url=qr_image_url,
+        )
+        self.payments[payment.payment_id] = payment
+        rider.account_status = "O5_POLICY_ACTIVE_PAYMENT_PENDING"
+        return payment
+
+    def submit_upi_qr_transaction(self, payment_id: str, rider_id: str, upi_transaction_id: str, payer_upi_id: str) -> PaymentRecord:
+        payment = self.payments.get(payment_id)
+        if not payment or payment.rider_id != rider_id:
+            raise KeyError("payment not found")
+
+        payment.upi_transaction_id = upi_transaction_id
+        payment.payer_upi_id = payer_upi_id
+        payment.status = "pending_admin_confirmation"
+        payment.updated_at = datetime.utcnow()
+
+        rider = self.riders.get(rider_id)
+        if rider:
+            rider.payment_submitted_at = payment.updated_at
+            rider.account_flags["payment_submitted"] = True
+            rider.account_status = "O6_PAYMENT_SUBMITTED_ADMIN_REVIEW"
+
+        return payment
+
+    async def create_razorpay_payment(self, rider_id: str, amount_paise: int, upi_id: Optional[str] = None) -> PaymentRecord:
+        rider = self.riders.get(rider_id)
+        if not rider:
+            raise KeyError("rider not found")
+
+        if upi_id:
+            rider.upi_id = upi_id
+            rider.account_flags["upi_linked"] = True
+
+        order = await payment_service.create_razorpay_order(rider_id=rider_id, amount_paise=amount_paise)
+        now = datetime.utcnow()
+        payment = PaymentRecord(
+            payment_id=f"pay-{uuid4().hex[:12]}",
+            rider_id=rider_id,
+            provider="razorpay",
+            amount_paise=amount_paise,
+            status="initiated",
+            created_at=now,
+            updated_at=now,
+            razorpay_order_id=order.get("id"),
+            checkout_key=CFG.RAZORPAY_KEY_ID,
+            checkout_url=CFG.RAZORPAY_CHECKOUT_BASE_URL,
+        )
+        self.payments[payment.payment_id] = payment
+        rider.account_status = "O5_POLICY_ACTIVE_PAYMENT_PENDING"
+        return payment
+
+    def confirm_payment(
+        self,
+        payment_id: str,
+        admin_id: str,
+        approve: bool,
+        admin_note: Optional[str] = None,
+        account_status: Optional[str] = None,
+    ) -> PaymentRecord:
+        payment = self.payments.get(payment_id)
+        if not payment:
+            raise KeyError("payment not found")
+
+        payment.updated_at = datetime.utcnow()
+        payment.admin_note = admin_note
+        payment.confirmed_by = admin_id
+
+        rider = self.riders.get(payment.rider_id)
+        if approve:
+            payment.status = "confirmed"
+            payment.confirmed_at = payment.updated_at
+            if rider:
+                rider.payment_confirmed_at = payment.updated_at
+                rider.account_flags["payment_confirmed"] = True
+                rider.account_flags["week_active"] = True
+                rider.account_status = account_status or "O7_PAYMENT_CONFIRMED_WEEK_ACTIVE"
+        else:
+            payment.status = "rejected"
+            if rider:
+                rider.account_flags["payment_confirmed"] = False
+                rider.account_flags["week_active"] = False
+                rider.account_status = account_status or "O8_PAYMENT_REJECTED_ACTION_REQUIRED"
+
+        return payment
+
+    def list_pending_payments(self) -> list[PaymentRecord]:
+        rows = [payment for payment in self.payments.values() if payment.status == "pending_admin_confirmation"]
+        rows.sort(key=lambda payment: payment.updated_at, reverse=True)
+        return rows
+
+    def get_payment(self, payment_id: str) -> PaymentRecord:
+        payment = self.payments.get(payment_id)
+        if not payment:
+            raise KeyError("payment not found")
+        return payment
+
+    def list_rider_payments(self, rider_id: str) -> list[PaymentRecord]:
+        rows = [payment for payment in self.payments.values() if payment.rider_id == rider_id]
+        rows.sort(key=lambda payment: payment.updated_at, reverse=True)
+        return rows
 
     def portfolio_stats(self) -> dict:
         active_policies = sum(1 for p in self.policies.values() if p.status == "active")
@@ -343,6 +591,8 @@ class InMemoryStore:
             "aqi": (326.0, ">= 300"),
             "closure": (11.0, "zone closure count >= 8"),
             "fog": (38.0, "visibility < 50 m"),
+            "traffic": (1.9, ">= 1.5 jam factor"),
+            "roadblock": (2.0, ">= 1 severe roadblock"),
         }
         metric, threshold = thresholds.get(trigger_type, (0.0, "threshold reached"))
 
@@ -372,6 +622,8 @@ class InMemoryStore:
                 "aqi": CFG.PAYOUTS["aqi"]["full"],
                 "closure": CFG.PAYOUTS["closure"]["full"],
                 "fog": CFG.PAYOUTS["fog"]["full"],
+                "traffic": CFG.PAYOUTS["traffic"]["full"],
+                "roadblock": CFG.PAYOUTS["roadblock"]["full"],
             }
             amount = amount_map.get(trigger_type, 30_000)
             
@@ -462,7 +714,7 @@ class InMemoryStore:
         # update event status to paid/held properly based on claims (to be done later if needed, handled by claims generation)
         return event
 
-    def create_claim_for_rider(self, rider_id: str, trigger_event: TriggerEventRecord, amount_paise: int) -> None:
+    def create_claim_for_rider(self, rider_id: str, trigger_event: TriggerEventRecord, amount_paise: int) -> ClaimRecord:
         rider_profile = {
             "rider_id": rider_id,
             "pin_code": self.riders[rider_id].pin_code,
@@ -507,6 +759,8 @@ class InMemoryStore:
             rider_phone = self.riders[rider_id].phone
             if rider_phone:
                 send_claim_sms(rider_phone, amount_paise, trigger_event.trigger_type)
+
+        return claim
 
 
 # Type alias used for type hints without importing Pydantic inside storage

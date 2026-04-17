@@ -17,25 +17,44 @@ export function ZoneShiftStep({ onSelected }: ZoneShiftStepProps) {
   const [selectedZones, setSelectedZones] = useState<string[]>([]);
   const [selectedShifts, setSelectedShifts] = useState<('morning' | 'afternoon' | 'evening' | 'night')[]>([]);
   const [loadingZones, setLoadingZones] = useState(false);
+  const [zoneError, setZoneError] = useState<string | null>(null);
 
   const canContinue = useMemo(() => /^\d{6}$/.test(pinCode) && selectedZones.length > 0 && selectedShifts.length > 0, [pinCode, selectedZones, selectedShifts]);
 
   useEffect(() => {
-    if (/^\d{6}$/.test(pinCode)) {
+    let active = true;
+
+    const run = async () => {
+      if (!/^\d{6}$/.test(pinCode)) {
+        setZones([]);
+        setSelectedZones([]);
+        setZoneError(null);
+        return;
+      }
+
       setLoadingZones(true);
-      getZones(pinCode)
-        .then((response) => {
-          setZones(response.zones);
-          setSelectedZones([]); // Reset selection
-        })
-        .catch(() => {
-          setZones([]);
-        })
-        .finally(() => setLoadingZones(false));
-    } else {
-      setZones([]);
-      setSelectedZones([]);
-    }
+      setZoneError(null);
+      try {
+        const result = await getZones(pinCode);
+        if (!active) return;
+        setZones(result.zones);
+        setSelectedZones([]);
+      } catch (err) {
+        if (!active) return;
+        setZones([]);
+        setSelectedZones([]);
+        setZoneError(err instanceof Error ? err.message : 'Unable to load zones.');
+      } finally {
+        if (active) {
+          setLoadingZones(false);
+        }
+      }
+    };
+
+    run();
+    return () => {
+      active = false;
+    };
   }, [pinCode]);
 
   const toggleZone = (zone: string) => {
@@ -49,22 +68,23 @@ export function ZoneShiftStep({ onSelected }: ZoneShiftStepProps) {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Where do you usually ride?</Text>
-      <Text style={styles.subtitle}>Zone and shift are used to price your weekly premium.</Text>
+      {/* Added Traffic mention to the UI */}
+      <Text style={styles.subtitle}>Zone, shift, and historical traffic patterns are used to price your weekly premium.</Text>
 
       <Text style={styles.label}>Pin code</Text>
       <TextInput
         value={pinCode}
         onChangeText={(value) => setPinCode(value.replace(/\D/g, '').slice(0, 6))}
         style={styles.input}
-        placeholder="600042"
+        placeholder="641659"
         keyboardType="number-pad"
       />
 
-      {loadingZones && <Text style={styles.loading}>Loading zones...</Text>}
+      {loadingZones && <Text style={styles.loading}>Searching localities for pincode...</Text>}
 
       {zones.length > 0 && (
         <>
-          <Text style={styles.label}>Select zones</Text>
+          <Text style={styles.label}>Select your localities (Zones)</Text>
           <View style={styles.chipGrid}>
             {zones.map((zone) => (
               <Pressable key={zone} style={[styles.chip, selectedZones.includes(zone) ? styles.chipSelected : null]} onPress={() => toggleZone(zone)}>
@@ -74,6 +94,10 @@ export function ZoneShiftStep({ onSelected }: ZoneShiftStepProps) {
           </View>
         </>
       )}
+
+      {/^\d{6}$/.test(pinCode) && zones.length === 0 && !loadingZones ? (
+        <Text style={styles.error}>{zoneError ?? 'No localities found for this pin code.'}</Text>
+      ) : null}
 
       <Text style={styles.label}>Select shifts</Text>
       <View style={styles.chipGrid}>
@@ -94,7 +118,7 @@ const styles = StyleSheet.create({
   container: { gap: 10 },
   title: { fontSize: 20, fontWeight: '700', color: colors.ink },
   subtitle: { color: colors.muted, fontSize: 12 },
-  label: { fontSize: 11, fontWeight: '600', color: colors.muted },
+  label: { fontSize: 11, fontWeight: '600', color: colors.muted, marginTop: 4 },
   input: {
     borderWidth: 1,
     borderColor: colors.border,
@@ -119,5 +143,6 @@ const styles = StyleSheet.create({
   chipText: { color: colors.muted, fontSize: 11, fontWeight: '600' },
   chipTextSelected: { color: colors.tealDark },
   helper: { fontSize: 11, color: colors.muted },
-  loading: { fontSize: 11, color: colors.muted },
+  loading: { fontSize: 11, color: colors.teal, fontStyle: 'italic' },
+  error: { fontSize: 11, color: colors.coral },
 });

@@ -1,6 +1,25 @@
 """Pydantic schemas mirroring the frontend API clients."""
-from typing import Dict, List, Literal, Optional
+
+from typing import Any, Dict, List, Literal, Optional
+
 from pydantic import BaseModel, Field
+
+AccountStatusCode = Literal[
+    "O1_OTP_SENT_NOT_VERIFIED",
+    "O2_OTP_VERIFIED_PROFILE_PENDING",
+    "O3_PROFILE_COMPLETED",
+    "O4_PLATFORM_LINKED",
+    "O5_POLICY_ACTIVE_PAYMENT_PENDING",
+    "O6_PAYMENT_SUBMITTED_ADMIN_REVIEW",
+    "O7_PAYMENT_CONFIRMED_WEEK_ACTIVE",
+    "O8_PAYMENT_REJECTED_ACTION_REQUIRED",
+    "O9_ACCOUNT_SUSPENDED",
+]
+
+TriggerType = Literal["rain", "heat", "outage", "aqi", "closure", "fog", "traffic", "roadblock"]
+
+PaymentProvider = Literal["upi_qr", "razorpay"]
+PaymentStatus = Literal["initiated", "pending_admin_confirmation", "confirmed", "rejected", "failed"]
 
 
 class SendOtpRequest(BaseModel):
@@ -64,7 +83,7 @@ class UpdateRiderProfileRequest(BaseModel):
 
 
 class TriggerCoverage(BaseModel):
-    type: Literal["rain", "heat", "outage", "aqi", "closure", "fog"]
+    type: TriggerType
     min_paise: int
     max_paise: int
 
@@ -80,7 +99,7 @@ class PremiumResponse(BaseModel):
     weekly_premium_paise: int
     weekly_premium_inr: float
     risk_score: float
-    breakdown: Dict
+    breakdown: Dict[str, Any]
     city_name: str
     forecast_source: str
     model: str
@@ -152,7 +171,7 @@ class ClaimDecisionRequest(BaseModel):
 
 class TriggerEvent(BaseModel):
     event_id: str
-    trigger_type: Literal["rain", "heat", "outage", "aqi", "closure", "fog"]
+    trigger_type: TriggerType
     zone: str
     metric: float
     threshold: str
@@ -163,7 +182,7 @@ class TriggerEvent(BaseModel):
 
 class DemoFireTriggerRequest(BaseModel):
     pin_code: str
-    trigger_type: Literal["rain", "heat", "outage", "aqi", "closure", "fog"]
+    trigger_type: TriggerType
 
 
 class DemoFireTriggerResponse(BaseModel):
@@ -178,3 +197,82 @@ class RiderVerificationInfo(BaseModel):
     is_verified: bool
     verified_by: Optional[str] = None
     verified_at: Optional[str] = None
+    account_status: Optional[AccountStatusCode] = None
+
+
+class RiderSearchResult(BaseModel):
+    rider_id: str
+    name: str
+    phone: str
+    platform: Literal["swiggy", "zomato", "zepto", "blinkit", "unknown"]
+    home_zone: str
+    orders_d30: int
+    claims_d30: int
+    paid_claims_d30: int
+    paid_amount_paise_d30: int
+    risk_score: float
+    approval_rate: float
+    last_seen_at: str
+    account_status: Optional[AccountStatusCode] = None
+
+
+class PaymentRecordResponse(BaseModel):
+    payment_id: str
+    rider_id: str
+    provider: PaymentProvider
+    status: PaymentStatus
+    amount_paise: int
+    created_at: str
+    updated_at: str
+    upi_uri: Optional[str] = None
+    qr_image_url: Optional[str] = None
+    upi_transaction_id: Optional[str] = None
+    payer_upi_id: Optional[str] = None
+    razorpay_order_id: Optional[str] = None
+    razorpay_payment_id: Optional[str] = None
+    checkout_key: Optional[str] = None
+    checkout_url: Optional[str] = None
+    account_status: Optional[AccountStatusCode] = None
+    admin_note: Optional[str] = None
+
+
+class CreateUpiQrPaymentRequest(BaseModel):
+    rider_id: str
+    upi_id: str
+    amount_paise: int = Field(..., ge=100)
+    note: Optional[str] = None
+
+
+class SubmitUpiQrTransactionRequest(BaseModel):
+    payment_id: str
+    rider_id: str
+    upi_transaction_id: str
+    payer_upi_id: str
+
+
+class CreateRazorpayOrderRequest(BaseModel):
+    rider_id: str
+    amount_paise: int = Field(..., ge=100)
+    upi_id: Optional[str] = None
+
+
+class ConfirmPaymentRequest(BaseModel):
+    approve: bool
+    admin_note: Optional[str] = None
+    account_status: Optional[AccountStatusCode] = None
+
+
+class AccountStatusUpdateRequest(BaseModel):
+    account_status: AccountStatusCode
+    note: Optional[str] = None
+
+
+class AccountStatusOption(BaseModel):
+    code: AccountStatusCode
+    label: str
+    description: str
+
+
+class OutboundIvrCallRequest(BaseModel):
+    phone: str
+    rider_id: Optional[str] = None

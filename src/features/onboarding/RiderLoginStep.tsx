@@ -1,21 +1,34 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
-import { authClient } from '../../api/authClient';
+import { riderLogin } from '../../api/authClient';
 import { colors } from '../../theme/colors';
+import { isValidIndianPhone } from '../../utils/validators';
 
 type RiderLoginStepProps = {
-  phone: string;
+  phone?: string;
   onLogin: (payload: { jwt: string; riderId: string }) => void;
   onSwitchToSignup: () => void;
 };
 
 export function RiderLoginStep({ phone, onLogin, onSwitchToSignup }: RiderLoginStepProps) {
+  const [loginPhone, setLoginPhone] = useState(phone ?? '');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (phone && phone !== loginPhone) {
+      setLoginPhone(phone);
+    }
+  }, [phone, loginPhone]);
+
   const handleLogin = async () => {
+    if (!isValidIndianPhone(loginPhone)) {
+      setError('Please enter a valid phone number');
+      return;
+    }
+
     if (!password.trim()) {
       setError('Please enter your password');
       return;
@@ -24,7 +37,7 @@ export function RiderLoginStep({ phone, onLogin, onSwitchToSignup }: RiderLoginS
     setLoading(true);
     setError(null);
     try {
-      const result = await authClient.riderLogin({ phone, password });
+      const result = await riderLogin({ phone: loginPhone, password });
       onLogin({
         jwt: result.access_token,
         riderId: result.rider_id,
@@ -40,6 +53,15 @@ export function RiderLoginStep({ phone, onLogin, onSwitchToSignup }: RiderLoginS
     <View style={styles.container}>
       <Text style={styles.title}>Welcome back!</Text>
       <Text style={styles.subtitle}>Enter your password to continue</Text>
+
+      <TextInput
+        style={styles.input}
+        placeholder="Phone number"
+        keyboardType="phone-pad"
+        value={loginPhone}
+        onChangeText={setLoginPhone}
+        autoCapitalize="none"
+      />
 
       <TextInput
         style={styles.input}

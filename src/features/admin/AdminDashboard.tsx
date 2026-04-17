@@ -2,21 +2,26 @@ import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import {
+  AccountStatusOption,
   approveClaim,
+  confirmPayment,
   fireDemoTrigger,
   FraudQueueItem,
+  getAccountStatusOptions,
   getFraudQueue,
+  getPendingPayments,
   getPortfolioStats,
   getTriggerEvents,
+  PaymentRecord,
   PortfolioStats as PortfolioStatsType,
   rejectClaim,
   searchRiders,
+  RiderSearchResult,
   TriggerEvent,
 } from '../../api/adminClient';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { colors } from '../../theme/colors';
 import { Toast } from '../../components/ui/Toast';
-import { RiderSearchResult } from '../../services/adminMockService';
 import { FraudQueue } from './FraudQueue';
 import { PortfolioStats } from './PortfolioStats';
 import { RiderSearch } from './RiderSearch';
@@ -31,6 +36,8 @@ export function AdminDashboard({ defaultPinCode, onBackToRider }: AdminDashboard
   const [portfolioStats, setPortfolioStats] = useState<PortfolioStatsType | null>(null);
   const [fraudQueue, setFraudQueue] = useState<FraudQueueItem[]>([]);
   const [triggerEvents, setTriggerEvents] = useState<TriggerEvent[]>([]);
+  const [pendingPayments, setPendingPayments] = useState<PaymentRecord[]>([]);
+  const [statusOptions, setStatusOptions] = useState<AccountStatusOption[]>([]);
 
   const [searchLoading, setSearchLoading] = useState(false);
   const [riderSearchResults, setRiderSearchResults] = useState<RiderSearchResult[]>([]);
@@ -39,14 +46,22 @@ export function AdminDashboard({ defaultPinCode, onBackToRider }: AdminDashboard
 
   useEffect(() => {
     const load = async () => {
-      const [portfolio, queue, events] = await Promise.all([getPortfolioStats(), getFraudQueue(), getTriggerEvents()]);
+      const [portfolio, queue, events, payments, options] = await Promise.all([
+        getPortfolioStats(),
+        getFraudQueue(),
+        getTriggerEvents(),
+        getPendingPayments(),
+        getAccountStatusOptions(),
+      ]);
       setPortfolioStats(portfolio);
       setFraudQueue(queue);
       setTriggerEvents(events);
+      setPendingPayments(payments);
+      setStatusOptions(options);
     };
 
     load().catch(() => {
-      setToastMessage('Dashboard loaded with fallback demo data.');
+      setToastMessage('Unable to load admin data. Check the backend connection.');
     });
   }, []);
 
@@ -96,6 +111,20 @@ export function AdminDashboard({ defaultPinCode, onBackToRider }: AdminDashboard
     }
   };
 
+  const handleConfirmPayment = async (payment: PaymentRecord, approve: boolean) => {
+    try {
+      await confirmPayment(payment.payment_id, {
+        approve,
+        admin_note: approve ? 'Payment confirmed by admin dashboard' : 'Payment rejected by admin dashboard',
+        account_status: approve ? 'O7_PAYMENT_CONFIRMED_WEEK_ACTIVE' : 'O8_PAYMENT_REJECTED_ACTION_REQUIRED',
+      });
+      setPendingPayments((prev) => prev.filter((item) => item.payment_id !== payment.payment_id));
+      setToastMessage(approve ? `Confirmed ${payment.payment_id}` : `Rejected ${payment.payment_id}`);
+    } catch {
+      setToastMessage('Unable to update payment confirmation status.');
+    }
+  };
+
   return (
     <View style={styles.dashboardWrap}>
       <View style={styles.dashboardHeader}>
@@ -112,6 +141,36 @@ export function AdminDashboard({ defaultPinCode, onBackToRider }: AdminDashboard
         <PortfolioStats stats={portfolioStats} />
         <RiderSearch riders={riderSearchResults} loading={searchLoading} onSearch={handleSearch} />
         <FraudQueue items={fraudQueue} onApprove={handleApprove} onReject={handleReject} />
+
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>Pending UPI confirmations</Text>
+          {pendingPayments.length === 0 ? <Text style={styles.sectionEmpty}>No pending payment confirmations.</Text> : null}
+          {pendingPayments.map((payment) => (
+            <View key={payment.payment_id} style={styles.paymentRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.paymentTitle}>{payment.payment_id}</Text>
+                <Text style={styles.paymentMeta}>{payment.rider_id} · {payment.provider.toUpperCase()}</Text>
+                <Text style={styles.paymentMeta}>Txn: {payment.upi_transaction_id ?? 'pending'}</Text>
+                <Text style={styles.paymentMeta}>Status: {payment.status}</Text>
+              </View>
+              <View style={styles.paymentActions}>
+                <PrimaryButton label="Confirm" onPress={() => handleConfirmPayment(payment, true)} />
+                <PrimaryButton label="Reject" onPress={() => handleConfirmPayment(payment, false)} variant="outline" />
+              </View>
+            </View>
+          ))}
+        </View>
+
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>Account status reference</Text>
+          {statusOptions.map((option) => (
+            <View key={option.code} style={styles.statusOptionRow}>
+              <Text style={styles.statusCode}>{option.code}</Text>
+              <Text style={styles.statusText}>{option.label} - {option.description}</Text>
+            </View>
+          ))}
+        </View>
+
         <TriggerEventTable events={triggerEvents} onFireDemoTrigger={handleFireDemoTrigger} />
       </ScrollView>
 
@@ -133,4 +192,28 @@ const styles = StyleSheet.create({
   subhead: { fontSize: 12, color: colors.muted },
   scrollContent: { paddingHorizontal: 16, paddingBottom: 24, gap: 12 },
   backBtnWrap: { minWidth: 132 },
+  sectionCard: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    backgroundColor: colors.white,
+    padding: 12,
+    gap: 8,
+  },
+  sectionTitle: { fontSize: 15, fontWeight: '700', color: colors.ink2 },
+  sectionEmpty: { color: colors.muted, fontSize: 12 },
+  paymentRow: {
+    borderWidth: 1,
+    borderColor: colors.paper3,
+    borderRadius: 10,
+    padding: 10,
+    gap: 8,
+    backgroundColor: colors.paper,
+  },
+  paymentTitle: { fontSize: 12, fontWeight: '700', color: colors.ink2 },
+  paymentMeta: { fontSize: 11, color: colors.muted },
+  paymentActions: { flexDirection: 'row', gap: 8 },
+  statusOptionRow: { gap: 2, borderTopWidth: 1, borderTopColor: colors.paper3, paddingTop: 8 },
+  statusCode: { fontSize: 11, fontWeight: '700', color: colors.tealDark },
+  statusText: { fontSize: 11, color: colors.muted },
 });

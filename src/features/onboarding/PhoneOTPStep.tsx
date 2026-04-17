@@ -10,10 +10,11 @@ import { isValidIndianPhone, isValidOtp } from '../../utils/validators';
 
 type PhoneOTPStepProps = {
   onVerified: (payload: { phone: string; jwt: string; riderId: string }) => void;
+  onSwitchToLogin: () => void;
   resendCooldown?: number;
 };
 
-export function PhoneOTPStep({ onVerified, resendCooldown = 30 }: PhoneOTPStepProps) {
+export function PhoneOTPStep({ onVerified, onSwitchToLogin, resendCooldown = 30 }: PhoneOTPStepProps) {
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
@@ -79,6 +80,12 @@ export function PhoneOTPStep({ onVerified, resendCooldown = 30 }: PhoneOTPStepPr
     <View style={styles.container}>
       <Text style={styles.title}>Welcome to EarnSecure</Text>
       <Text style={styles.subtitle}>Income protection for delivery riders</Text>
+
+      <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
+        <Text style={styles.helper} onPress={onSwitchToLogin}>
+          Already have an account? <Text style={{ color: colors.teal, fontWeight: '700' }}>Log In</Text>
+        </Text>
+      </View>
 
       <PhoneInput value={phone} onChangeText={setPhone} />
       <PrimaryButton label={otpSent ? 'Resend OTP' : 'Send OTP'} onPress={handleSendOtp} loading={loadingSend} disabled={countdown > 0} />

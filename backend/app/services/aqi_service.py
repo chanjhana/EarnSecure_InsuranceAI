@@ -96,8 +96,7 @@ async def check_and_fire_aqi_trigger(pin_code: str, city_name: str, lat: float, 
     for rider in active_riders:
         store.create_claim_for_rider(
             rider_id=rider.rider_id,
-            trigger_event_id=event.event_id,
-            trigger_type="aqi",
+            trigger_event=event,
             amount_paise=35000
         )
         

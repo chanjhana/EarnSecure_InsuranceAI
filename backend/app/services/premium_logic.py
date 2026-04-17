@@ -10,6 +10,7 @@ from typing import Any, Dict
 
 from ..config import CFG
 from .weather_service import weather_service
+from .traffic_service import traffic_service
 
 logger = logging.getLogger("earnsecure.premium")
 
@@ -20,6 +21,7 @@ async def calculate_premium(rider_data: dict) -> dict:
     shift_windows = rider_data.get("shift_windows", [])
 
     forecast = await weather_service.get_risk_forecast(pin_code)
+    jam_factor = await traffic_service.get_traffic_jam_factor(pin_code)
 
     # 1. WEATHER RISK (50% max influence)
     weather_risk_score = 0.0
@@ -44,7 +46,15 @@ async def calculate_premium(rider_data: dict) -> dict:
     elif forecast["min_visibility_m"] < 1000.0:
         weather_risk_score += 0.05
 
-    # 2. SHIFT RISK (30% max influence)
+    # 2. TRAFFIC RISK (15% max influence, experimental)
+    traffic_risk_score = 0.0
+    if jam_factor and jam_factor > 1.8:
+        traffic_risk_score += 0.15
+    elif jam_factor and jam_factor > 1.5:
+        traffic_risk_score += 0.08
+
+
+    # 3. SHIFT RISK (30% max influence)
     shift_risk_score = 0.0
     if "morning" in shift_windows:
         shift_risk_score += 0.15
@@ -53,7 +63,7 @@ async def calculate_premium(rider_data: dict) -> dict:
     if "afternoon" in shift_windows:
         shift_risk_score += 0.05
 
-    # 3. ZONE RISK (20% max influence)
+    # 4. ZONE RISK (20% max influence)
     zone_risk_score = 0.0
     zone_count = len(zones)
     if zone_count >= 3:
@@ -64,7 +74,7 @@ async def calculate_premium(rider_data: dict) -> dict:
         zone_risk_score += 0.05
 
     # Calculate final risk score
-    total_risk_score = min(weather_risk_score + shift_risk_score + zone_risk_score, 1.0)
+    total_risk_score = min(weather_risk_score + traffic_risk_score + shift_risk_score + zone_risk_score, 1.0)
 
     # Premium formula
     BASE_PREMIUM_PAISE = 4900   # ₹49
@@ -85,6 +95,10 @@ async def calculate_premium(rider_data: dict) -> dict:
                 "rainy_days": forecast["rainy_days"],
                 "contribution": round(weather_risk_score, 3)
             },
+            "traffic_risk": {
+                "jam_factor": jam_factor,
+                "contribution": round(traffic_risk_score, 3)
+            },
             "shift_risk": {
                 "shifts": shift_windows,
                 "contribution": round(shift_risk_score, 3)
@@ -96,5 +110,5 @@ async def calculate_premium(rider_data: dict) -> dict:
         },
         "city_name": forecast["city_name"],
         "forecast_source": forecast["forecast_source"],
-        "model": "GBR-weather-v2"
+        "model": "GBR-weather-v3-traffic"
     }

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Animated, Image, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { colors, spacing } from '../theme/theme';
 
@@ -7,11 +7,31 @@ type PremiumScreenProps = {
   premium: number;
   upiId: string;
   onChangeUpiId: (value: string) => void;
-  onActivate: () => void;
+  qrImageUrl?: string | null;
+  paymentMode: 'idle' | 'qr_generated' | 'submitted';
+  transactionUpiId: string;
+  loading?: boolean;
+  onChangeTransactionUpiId: (value: string) => void;
+  onGenerateQr: () => void;
+  onSubmitQr: () => void;
+  onPayWithRazorpay: () => void;
   onBack: () => void;
 };
 
-export function PremiumScreen({ premium, upiId, onChangeUpiId, onActivate, onBack }: PremiumScreenProps) {
+export function PremiumScreen({
+  premium,
+  upiId,
+  onChangeUpiId,
+  qrImageUrl,
+  paymentMode,
+  transactionUpiId,
+  loading = false,
+  onChangeTransactionUpiId,
+  onGenerateQr,
+  onSubmitQr,
+  onPayWithRazorpay,
+  onBack,
+}: PremiumScreenProps) {
   const animatedValue = useRef(new Animated.Value(0)).current;
   const [displayValue, setDisplayValue] = useState(0);
   const pulse = useRef(new Animated.Value(1)).current;
@@ -30,12 +50,17 @@ export function PremiumScreen({ premium, upiId, onChangeUpiId, onActivate, onBac
   }, [animatedValue, premium]);
 
   useEffect(() => {
-    Animated.loop(
+    const pulseLoop = Animated.loop(
       Animated.sequence([
         Animated.timing(pulse, { toValue: 0.3, duration: 700, useNativeDriver: true }),
         Animated.timing(pulse, { toValue: 1, duration: 700, useNativeDriver: true }),
       ])
-    ).start();
+    );
+
+    pulseLoop.start();
+    return () => {
+      pulseLoop.stop();
+    };
   }, [pulse]);
 
   const premiumLabel = useMemo(() => `₹${displayValue}`, [displayValue]);
@@ -131,6 +156,16 @@ export function PremiumScreen({ premium, upiId, onChangeUpiId, onActivate, onBac
               <Text style={styles.coverText}>Closure </Text>
               <Text style={styles.coverPayout}>₹300–400</Text>
             </View>
+            <View style={styles.coverPill}>
+              <Text style={styles.coverIcon}>🚦</Text>
+              <Text style={styles.coverText}>Traffic </Text>
+              <Text style={styles.coverPayout}>₹300–450</Text>
+            </View>
+            <View style={styles.coverPill}>
+              <Text style={styles.coverIcon}>🚧</Text>
+              <Text style={styles.coverText}>Roadblock </Text>
+              <Text style={styles.coverPayout}>₹350–500</Text>
+            </View>
           </View>
 
           <Text style={styles.sectionLabel}>Trigger monitors armed</Text>
@@ -163,9 +198,16 @@ export function PremiumScreen({ premium, upiId, onChangeUpiId, onActivate, onBac
               </View>
               <Text style={[styles.triggerState, styles.triggerIdle]}>IDLE</Text>
             </View>
+            <View style={styles.triggerRow}>
+              <View>
+                <Text style={styles.triggerName}>🚦 TRAFFIC / ROADBLOCK</Text>
+                <Text style={styles.triggerThresh}>TomTom bbox polling every 15m · 6h treatment</Text>
+              </View>
+              <Text style={[styles.triggerState, styles.triggerArmed]}>ARMED</Text>
+            </View>
           </View>
 
-          <Text style={styles.sectionLabel}>UPI for payouts</Text>
+          <Text style={styles.sectionLabel}>UPI for payouts and payment confirmation</Text>
           <View style={styles.inputWrap}>
             <TextInput
               style={styles.input}
@@ -178,10 +220,53 @@ export function PremiumScreen({ premium, upiId, onChangeUpiId, onActivate, onBac
               accessibilityLabel="UPI ID"
             />
           </View>
-          <TouchableOpacity style={styles.primaryButton} onPress={onActivate} accessible accessibilityLabel="Activate coverage">
-            <Text style={styles.primaryButtonText}>Activate Coverage — Pay ₹{premium} →</Text>
+          <TouchableOpacity
+            style={[styles.primaryButton, loading ? styles.buttonDisabled : null]}
+            onPress={onGenerateQr}
+            disabled={loading}
+            accessible
+            accessibilityLabel="Generate UPI QR"
+          >
+            <Text style={styles.primaryButtonText}>{loading ? 'Working...' : `Scan & Pay UPI QR - ₹${premium}`}</Text>
           </TouchableOpacity>
-          <Text style={styles.paymentNote}>Payments via Razorpay · Instant payouts · No claim filing</Text>
+
+          {qrImageUrl ? (
+            <View style={styles.qrWrap}>
+              <Image source={{ uri: qrImageUrl }} style={styles.qrImage} accessibilityLabel="UPI QR code" />
+              <Text style={styles.qrHint}>After paying, enter the UPI transaction reference for admin confirmation.</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="UPI transaction/reference ID"
+                placeholderTextColor={colors.borderStrong}
+                value={transactionUpiId}
+                onChangeText={onChangeTransactionUpiId}
+                autoCapitalize="none"
+                accessibilityLabel="UPI transaction ID"
+              />
+              <TouchableOpacity
+                style={[styles.secondaryButton, loading ? styles.buttonDisabled : null]}
+                onPress={onSubmitQr}
+                disabled={loading}
+                accessible
+                accessibilityLabel="Submit UPI transaction"
+              >
+                <Text style={styles.secondaryButtonText}>
+                  {loading ? 'Submitting...' : paymentMode === 'submitted' ? 'Submitted for Admin Confirmation' : 'Submit Transaction ID'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
+
+          <TouchableOpacity
+            style={[styles.outlineButton, loading ? styles.buttonDisabled : null]}
+            onPress={onPayWithRazorpay}
+            disabled={loading}
+            accessible
+            accessibilityLabel="Pay using Razorpay"
+          >
+            <Text style={styles.outlineButtonText}>Continue with Razorpay</Text>
+          </TouchableOpacity>
+          <Text style={styles.paymentNote}>Payments via Razorpay or UPI QR fallback · Transaction IDs are admin-verified.</Text>
 
           <TouchableOpacity onPress={onBack} style={styles.backButton} accessible accessibilityLabel="Back">
             <Text style={styles.backButtonText}>← Back</Text>
@@ -297,8 +382,47 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
+    marginBottom: spacing.sm,
   },
   primaryButtonText: { color: colors.background, fontSize: 15, fontWeight: '800', letterSpacing: 0.3 },
+  secondaryButton: {
+    backgroundColor: 'rgba(20, 241, 149, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(20, 241, 149, 0.35)',
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: spacing.sm,
+  },
+  secondaryButtonText: { color: colors.primary, fontSize: 13, fontWeight: '800' },
+  outlineButton: {
+    borderWidth: 1,
+    borderColor: colors.info,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+    backgroundColor: 'rgba(56, 189, 248, 0.08)',
+  },
+  outlineButtonText: { color: colors.info, fontSize: 14, fontWeight: '700' },
+  buttonDisabled: { opacity: 0.6 },
+  qrWrap: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    gap: spacing.sm,
+  },
+  qrImage: {
+    width: 180,
+    height: 180,
+    alignSelf: 'center',
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+  },
+  qrHint: { color: colors.textSubtle, fontSize: 11, textAlign: 'center' },
   paymentNote: { fontSize: 10, color: colors.borderStrong, textAlign: 'center', marginTop: spacing.sm },
   backButton: { marginTop: spacing.xl, alignSelf: 'center' },
   backButtonText: { color: colors.textMuted, fontWeight: '700', fontSize: 12 },

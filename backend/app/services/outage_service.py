@@ -115,8 +115,7 @@ async def check_and_fire_outage_trigger(store) -> bool:
         for rider in affected:
             store.create_claim_for_rider(
                 rider_id=rider.rider_id,
-                trigger_event_id=event.event_id,
-                trigger_type="outage",
+                trigger_event=event,
                 amount_paise=45000
             )
             

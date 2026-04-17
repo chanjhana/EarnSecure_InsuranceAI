@@ -14,13 +14,10 @@ export class ApiError extends Error {
 }
 
 const defaultBaseUrl = Platform.select({
-  ios: 'http://localhost:8000',
-  android: 'http://10.0.2.2:8000',
-  default: 'http://localhost:8000',
+  default: '',
 });
 
-export const API_BASE_URL = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env
-  ?.EXPO_PUBLIC_API_BASE_URL ?? defaultBaseUrl;
+export const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL?.trim() || defaultBaseUrl;
 
 type RequestOptions = {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
@@ -32,6 +29,13 @@ type RequestOptions = {
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { method = 'GET', body, token, signal } = options;
   const authToken = token ?? getAuthState().token ?? undefined;
+
+  if (!API_BASE_URL) {
+    throw new ApiError(
+      'Missing EXPO_PUBLIC_API_BASE_URL. Set it in your Expo environment or configure a same-origin proxy.',
+      500,
+    );
+  }
 
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method,

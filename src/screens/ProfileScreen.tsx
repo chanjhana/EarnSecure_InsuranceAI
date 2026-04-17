@@ -5,9 +5,11 @@ import { colors, spacing } from '../theme/theme';
 type ProfileScreenProps = {
   firstName: string;
   lastName: string;
+  vehicleNumber: string;
   password: string;
   onChangeFirstName: (value: string) => void;
   onChangeLastName: (value: string) => void;
+  onChangeVehicleNumber: (value: string) => void;
   onChangePassword: (value: string) => void;
   onNext: () => void;
   onBack: () => void;
@@ -16,9 +18,11 @@ type ProfileScreenProps = {
 export function ProfileScreen({
   firstName,
   lastName,
+  vehicleNumber,
   password,
   onChangeFirstName,
   onChangeLastName,
+  onChangeVehicleNumber,
   onChangePassword,
   onNext,
   onBack,
@@ -70,6 +74,20 @@ export function ProfileScreen({
                   accessibilityLabel="Last name"
                 />
               </View>
+            </View>
+
+            <Text style={styles.label}>Vehicle number</Text>
+            <View style={styles.inputWrap}>
+              <TextInput
+                style={styles.input}
+                placeholder="TN 09 AB 1234"
+                placeholderTextColor={colors.borderStrong}
+                value={vehicleNumber}
+                onChangeText={onChangeVehicleNumber}
+                autoCapitalize="characters"
+                accessible
+                accessibilityLabel="Vehicle number"
+              />
             </View>
 
             <Text style={styles.label}>Set a password</Text>

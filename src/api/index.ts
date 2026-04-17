@@ -6,3 +6,4 @@ export * from './premiumClient';
 export * from './policiesClient';
 export * from './claimsClient';
 export * from './adminClient';
+export * from './paymentsClient';

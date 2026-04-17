@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { Pressable, StyleProp, StyleSheet, Text, TextStyle, ViewStyle } from 'react-native';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 
@@ -8,9 +8,19 @@ type PrimaryButtonProps = {
   loading?: boolean;
   disabled?: boolean;
   variant?: 'primary' | 'outline';
+  style?: StyleProp<ViewStyle>;
+  textStyle?: StyleProp<TextStyle>;
 };
 
-export function PrimaryButton({ label, onPress, loading = false, disabled = false, variant = 'primary' }: PrimaryButtonProps) {
+export function PrimaryButton({
+  label,
+  onPress,
+  loading = false,
+  disabled = false,
+  variant = 'primary',
+  style,
+  textStyle,
+}: PrimaryButtonProps) {
   const isDisabled = disabled || loading;
   return (
     <Pressable
@@ -19,11 +29,14 @@ export function PrimaryButton({ label, onPress, loading = false, disabled = fals
         variant === 'primary' ? styles.primary : styles.outline,
         pressed && !isDisabled ? styles.pressed : null,
         isDisabled ? styles.disabled : null,
+        style,
       ]}
       disabled={isDisabled}
       onPress={onPress}
     >
-      <Text style={variant === 'primary' ? styles.primaryText : styles.outlineText}>{loading ? 'Please wait...' : label}</Text>
+      <Text style={[variant === 'primary' ? styles.primaryText : styles.outlineText, textStyle]}>
+        {loading ? 'Please wait...' : label}
+      </Text>
     </Pressable>
   );
 }

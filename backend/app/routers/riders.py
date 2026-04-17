@@ -4,6 +4,7 @@ import requests
 from ..dependencies import get_current_rider_id, get_store, get_token_payload
 from ..schemas import LinkPlatformRequest, LinkPlatformResponse, UpdateRiderProfileRequest
 from ..storage import InMemoryStore
+from ..services.traffic_service import traffic_service
 
 router = APIRouter(prefix="/riders", tags=["riders"])
 
@@ -83,11 +84,20 @@ async def get_zones(pincode: str) -> dict:
     if not isinstance(post_offices, list):
         raise HTTPException(status_code=502, detail="Postal API returned invalid post office data")
 
-    # Prefer postal office name for frontend zone display; fallback to block if needed.
-    names = [po.get("Name") or po.get("Block") for po in post_offices if isinstance(po, dict)]
+    # Prefer postal office name for frontend zone display; fallback to block/district.
+    names = [po.get("Name") or po.get("Block") or po.get("District") for po in post_offices if isinstance(po, dict)]
     zones = sorted({name.strip() for name in names if isinstance(name, str) and name.strip()})
 
     if not zones:
         raise HTTPException(status_code=404, detail="No zones found for this pincode")
 
     return {"zones": zones}
+
+
+@router.get("/traffic")
+async def get_traffic_factor(pincode: str) -> dict:
+    if not pincode.isdigit() or len(pincode) != 6:
+        raise HTTPException(status_code=400, detail="Invalid pincode")
+
+    snapshot = await traffic_service.get_zone_snapshot(pincode)
+    return snapshot.to_dict()

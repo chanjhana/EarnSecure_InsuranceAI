@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { RiderSearchResult } from '../../services/adminMockService';
+import { RiderSearchResult } from '../../api/adminClient';
 import { colors } from '../../theme/colors';
 import { paiseToInr } from '../../utils/currency';
 
@@ -46,6 +46,7 @@ export function RiderSearch({ riders, loading, onSearch }: RiderSearchProps) {
           </View>
           <Text style={styles.meta}>{rider.rider_id} · {rider.phone}</Text>
           <Text style={styles.meta}>{rider.platform.toUpperCase()} · {rider.home_zone}</Text>
+          {rider.account_status ? <Text style={styles.meta}>Account: {rider.account_status}</Text> : null}
 
           <View style={styles.statsRow}>
             <Text style={styles.stat}>Orders(30d): {rider.orders_d30}</Text>

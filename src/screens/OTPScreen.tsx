@@ -9,11 +9,13 @@ type OTPScreenProps = {
   onChangeOtp: (value: string) => void;
   onNext: () => void;
   onBack: () => void;
+  verifying?: boolean;
+  error?: string | null;
 };
 
 const OTP_LENGTH = 6;
 
-export function OTPScreen({ phone, otp, onChangeOtp, onNext, onBack }: OTPScreenProps) {
+export function OTPScreen({ phone, otp, onChangeOtp, onNext, onBack, verifying = false, error }: OTPScreenProps) {
   const [digits, setDigits] = useState<string[]>(() => {
     const initial = otp.split('').slice(0, OTP_LENGTH);
     return [...initial, ...Array(Math.max(OTP_LENGTH - initial.length, 0)).fill('')];
@@ -70,12 +72,19 @@ export function OTPScreen({ phone, otp, onChangeOtp, onNext, onBack }: OTPScreen
               ))}
             </View>
 
-            <TouchableOpacity style={styles.primaryButton} onPress={onNext} accessible accessibilityLabel="Verify and continue">
-              <Text style={styles.primaryButtonText}>Verify & Continue →</Text>
+            <TouchableOpacity
+              style={[styles.primaryButton, verifying ? styles.primaryButtonDisabled : null]}
+              onPress={onNext}
+              disabled={verifying}
+              accessible
+              accessibilityLabel="Verify and continue"
+            >
+              <Text style={styles.primaryButtonText}>{verifying ? 'Verifying...' : 'Verify & Continue →'}</Text>
             </TouchableOpacity>
             <Text style={styles.resendText}>
               Resend in <Text style={styles.resendAccent}>28s</Text>
             </Text>
+            {error ? <Text style={styles.errorText}>{error}</Text> : null}
           </View>
 
           <TouchableOpacity onPress={onBack} style={styles.backButton} accessible accessibilityLabel="Back">
@@ -149,9 +158,11 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     alignItems: 'center',
   },
+  primaryButtonDisabled: { opacity: 0.6 },
   primaryButtonText: { color: colors.background, fontSize: 15, fontWeight: '800', letterSpacing: 0.3 },
   resendText: { textAlign: 'center', marginTop: spacing.md, fontSize: 12, color: colors.textSubtle },
   resendAccent: { color: colors.primary, fontWeight: '700' },
+  errorText: { color: colors.coral, fontSize: 12, marginTop: spacing.sm, textAlign: 'center' },
   backButton: { marginTop: spacing.xl, alignSelf: 'center' },
   backButtonText: { color: colors.textMuted, fontWeight: '700', fontSize: 12 },
 });
