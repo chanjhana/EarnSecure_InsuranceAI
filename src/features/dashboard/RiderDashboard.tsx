@@ -14,12 +14,13 @@ import { TriggerMonitor } from './TriggerMonitor';
 
 type RiderDashboardProps = {
   riderId: string;
+  riderName?: string;
   onSwitchToAdmin?: () => void;
 };
 
 type RiderTab = 'home' | 'history' | 'policy';
 
-export function RiderDashboard({ riderId, onSwitchToAdmin }: RiderDashboardProps) {
+export function RiderDashboard({ riderId, riderName, onSwitchToAdmin }: RiderDashboardProps) {
   const [activeTab, setActiveTab] = useState<RiderTab>('home');
   const [claims, setClaims] = useState<Claim[]>([]);
   const [weeklyTotal, setWeeklyTotal] = useState(0);
@@ -58,6 +59,7 @@ export function RiderDashboard({ riderId, onSwitchToAdmin }: RiderDashboardProps
   const weekProgress = data?.week_progress ?? 0;
   const nextPremium = data?.next_premium ?? 0;
   const triggers = data?.trigger_statuses ?? [];
+  const safeName = (riderName || '').trim() || 'Rider';
 
   const headerSubtitle = useMemo(() => (policy ? `Policy ${policy.status.toUpperCase()}` : 'No active policy'), [policy]);
 
@@ -65,6 +67,7 @@ export function RiderDashboard({ riderId, onSwitchToAdmin }: RiderDashboardProps
     <SafeAreaView style={styles.root}>
       <View style={styles.header}>
         <View>
+          <Text style={styles.greeting}>Hi, {safeName}</Text>
           <Text style={styles.title}>Rider dashboard</Text>
           <Text style={styles.subtitle}>Rider {riderId} · {headerSubtitle}</Text>
         </View>
@@ -109,6 +112,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: { fontSize: 20, fontWeight: '800', color: colors.ink2 },
+  greeting: { fontSize: 14, fontWeight: '700', color: colors.tealDark, marginBottom: 4 },
   subtitle: { fontSize: 12, color: colors.muted },
   scrollContent: { paddingHorizontal: 20, paddingBottom: 24, gap: 14 },
   helper: { color: colors.muted, fontSize: 12 },

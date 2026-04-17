@@ -5,9 +5,10 @@ import { colors } from '../../theme/colors';
 
 type AdminLoginProps = {
   onLogin: (token: string) => void;
+  onBack?: () => void;
 };
 
-export function AdminLogin({ onLogin }: AdminLoginProps) {
+export function AdminLogin({ onLogin, onBack }: AdminLoginProps) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
@@ -32,6 +33,7 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
       />
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <Button title="Login" onPress={handleLogin} />
+      {onBack ? <Button title="Back" onPress={onBack} /> : null}
     </View>
   );
 }

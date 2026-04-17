@@ -13,8 +13,9 @@ from .postgres_store import PostgresBackedStore
 from .security import decode_access_token
 from .storage import InMemoryStore
 
-_env_file = Path(__file__).resolve().parents[1] / ".env.local"
-load_dotenv(_env_file)
+_env_dir = Path(__file__).resolve().parents[1]
+load_dotenv(_env_dir / ".env")
+load_dotenv(_env_dir / ".env.local")
 _database_url = os.getenv("DATABASE_URL")
 
 # Use PostgreSQL when DATABASE_URL is configured; fallback to in-memory for local resilience.
@@ -49,3 +50,11 @@ def get_current_rider_id(payload: dict = Depends(get_token_payload)) -> str:
     if not rider_id or not isinstance(rider_id, str):
         raise HTTPException(status_code=401, detail="invalid token subject")
     return rider_id
+
+
+def get_current_admin_id(payload: dict = Depends(get_token_payload)) -> str:
+    subject = payload.get("sub")
+    role = payload.get("role")
+    if subject != "admin" and role != "admin":
+        raise HTTPException(status_code=403, detail="admin access required")
+    return "admin"

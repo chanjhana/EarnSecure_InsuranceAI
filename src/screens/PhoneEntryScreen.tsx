@@ -1,18 +1,78 @@
-import { useMemo } from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-
+import React, { useMemo, useState, useEffect, useRef } from 'react';
+import { SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Animated, Image } from 'react-native';
 import { colors, spacing } from '../theme/theme';
 
 type PhoneEntryScreenProps = {
   phone: string;
   onChangePhone: (value: string) => void;
   onNext: () => void;
+  onLogin?: () => void;
   sending?: boolean;
   error?: string | null;
 };
 
-export function PhoneEntryScreen({ phone, onChangePhone, onNext, sending = false, error }: PhoneEntryScreenProps) {
+interface RotatingTextProps {
+  items: string[];
+  style?: any;
+  slideDistance?: number;
+  duration?: number;
+  stayDuration?: number;
+}
+
+const RotatingText: React.FC<RotatingTextProps> = ({
+  items,
+  style,
+  slideDistance = 8,
+  duration = 800,
+  stayDuration = 2000,
+}) => {
+  const [index, setIndex] = useState(0);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(slideDistance)).current;
+
+  useEffect(() => {
+    let mounted = true;
+
+    const run = () => {
+      Animated.sequence([
+        Animated.parallel([
+          Animated.timing(fadeAnim, { toValue: 1, duration, useNativeDriver: true }),
+          Animated.timing(slideAnim, { toValue: 0, duration, useNativeDriver: true }),
+        ]),
+        Animated.delay(stayDuration),
+        Animated.parallel([
+          Animated.timing(fadeAnim, { toValue: 0, duration, useNativeDriver: true }),
+          Animated.timing(slideAnim, { toValue: -slideDistance, duration, useNativeDriver: true }),
+        ]),
+      ]).start(() => {
+        if (!mounted) return;
+        fadeAnim.setValue(0);
+        slideAnim.setValue(slideDistance);
+        setIndex((prev) => (prev + 1) % items.length);
+      });
+    };
+
+    run();
+    return () => {
+      mounted = false;
+    };
+  }, [index, items.length, duration, stayDuration, slideDistance]);
+
+  return (
+    <Animated.Text style={[style, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+      {items[index]}
+    </Animated.Text>
+  );
+};
+
+export function PhoneEntryScreen({ phone, onChangePhone, onNext, onLogin, sending = false, error }: PhoneEntryScreenProps) {
   const displayPhone = useMemo(() => phone.replace('+91 ', '') || '98765 43210', [phone]);
+  const protectionItems = [
+    'against traffic.',
+    'against weather.',
+    'against fuel surges.',
+    'against app downtime.',
+  ];
 
   return (
     <SafeAreaView style={styles.root} accessible accessibilityLabel="Phone entry screen">
@@ -20,8 +80,12 @@ export function PhoneEntryScreen({ phone, onChangePhone, onNext, sending = false
         <View style={styles.content}>
           <View style={styles.logoRow} accessible accessibilityLabel="EarnSecure logo">
             <View style={styles.logoMark}>
-              <Text style={styles.logoShield}>{'✓'}</Text>
-              {/* TODO: replace with Image asset for logo mark */}
+              <Image
+                source={require('../../assets/earnsecure_logo.png')}
+                style={styles.logoImage}
+                accessible
+                accessibilityLabel="EarnSecure logo mark"
+              />
             </View>
             <Text style={styles.logoText}>EarnSecure</Text>
             <Text style={styles.logoSub}>PARAMETRIC</Text>
@@ -30,11 +94,11 @@ export function PhoneEntryScreen({ phone, onChangePhone, onNext, sending = false
           <View style={styles.heroSection}>
             <Text style={styles.heroTag}>INCOME PROTECTION FOR RIDERS</Text>
             <Text style={styles.heroTitle}>
-              Earn through{`\n`}
-              <Text style={styles.heroAccent}>any weather.</Text>
+              Stay Protected{`\n`}
+              <RotatingText items={protectionItems} style={styles.heroAccent} />
             </Text>
             <Text style={styles.heroSub}>
-              Auto-pays when rain, heat, or platform outages cut your earnings. No claims. Just coverage.
+              Auto-pays when traffic, weather, fuel surges, or platform outages cut your earnings. No claims — automated payouts.
             </Text>
           </View>
 
@@ -64,6 +128,17 @@ export function PhoneEntryScreen({ phone, onChangePhone, onNext, sending = false
             >
               <Text style={styles.primaryButtonText}>{sending ? 'Sending...' : 'Send OTP →'}</Text>
             </TouchableOpacity>
+
+            {onLogin ? (
+              <TouchableOpacity
+                style={styles.secondaryButton}
+                onPress={onLogin}
+                accessible
+                accessibilityLabel="Returning user login"
+              >
+                <Text style={styles.secondaryButtonText}>Returning user? Login with password</Text>
+              </TouchableOpacity>
+            ) : null}
 
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
@@ -106,6 +181,7 @@ const styles = StyleSheet.create({
     marginRight: spacing.sm,
   },
   logoShield: { color: colors.background, fontWeight: '900', fontSize: 16 },
+  logoImage: { width: 20, height: 20, resizeMode: 'contain' },
   logoText: { color: colors.text, fontSize: 20, fontWeight: '800', letterSpacing: -0.5 },
   logoSub: {
     marginLeft: 'auto',
@@ -135,8 +211,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   heroTitle: { fontSize: 28, fontWeight: '900', color: colors.text, lineHeight: 32, letterSpacing: -0.5 },
-  heroAccent: { color: colors.primary },
-  heroSub: { fontSize: 13, color: colors.textSubtle, marginTop: spacing.sm, lineHeight: 20 },
+  heroAccent: { color: colors.primary, fontWeight: '700' },
+  heroSub: { fontSize: 16, color: colors.textSubtle, marginTop: spacing.sm, lineHeight: 35 },
   card: {
     backgroundColor: 'rgba(15, 23, 42, 0.8)',
     borderWidth: 1,
@@ -180,6 +256,16 @@ const styles = StyleSheet.create({
   },
   primaryButtonDisabled: { opacity: 0.6 },
   primaryButtonText: { color: colors.background, fontSize: 15, fontWeight: '800', letterSpacing: 0.3 },
+  secondaryButton: {
+    marginTop: spacing.sm,
+    borderRadius: 12,
+    paddingVertical: 13,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+  },
+  secondaryButtonText: { color: colors.text, fontSize: 13, fontWeight: '700' },
   errorText: { color: colors.coral, fontSize: 12, marginTop: spacing.sm, textAlign: 'center' },
   poweredWrap: { marginTop: spacing.lg },
   poweredLabel: { fontSize: 10, color: colors.borderStrong, textAlign: 'center', marginBottom: spacing.sm },

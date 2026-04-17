@@ -13,9 +13,10 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-# ── Load .env.local next to the backend package ─────────────────────
-_env_file = Path(__file__).resolve().parents[1] / ".env.local"
-load_dotenv(_env_file)
+# ── Load .env first, then .env.local for local overrides ───────────
+_env_dir = Path(__file__).resolve().parents[1]
+load_dotenv(_env_dir / ".env")
+load_dotenv(_env_dir / ".env.local")
 
 
 class _Config:

@@ -85,7 +85,7 @@ export async function fireDemoTrigger(payload: { pin_code: string; trigger_type:
 }
 
 export async function login(password: string): Promise<{ access_token: string }> {
-  return apiRequest<{ access_token: string }>('/auth/admin/login', {
+  return apiRequest<{ access_token: string }>('/admin/login', {
     method: 'POST',
     body: { password },
   });

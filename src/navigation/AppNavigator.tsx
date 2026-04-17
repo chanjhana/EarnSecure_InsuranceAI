@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Alert, Linking } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, LinkingOptions } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { completeSignup } from '../api/authClient';
@@ -8,23 +8,29 @@ import { createRazorpayOrder, createUpiQrPayment, submitUpiQrTransaction } from 
 import { calculatePremium } from '../api/premiumClient';
 import { activatePolicy } from '../api/policiesClient';
 import { getZones, linkPlatform, updateRiderProfile } from '../api/ridersClient';
-import { DashboardScreen } from '../screens/DashboardScreen';
+import { AdminDashboard } from '../features/admin/AdminDashboard';
+import { AdminLogin } from '../features/admin/AdminLogin';
+import { RiderDashboard } from '../features/dashboard/RiderDashboard';
 import { OTPScreen } from '../screens/OTPScreen';
 import { PhoneEntryScreen } from '../screens/PhoneEntryScreen';
 import { PlatformScreen } from '../screens/PlatformScreen';
 import { PremiumScreen } from '../screens/PremiumScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
+import { RiderLoginScreen } from '../screens/RiderLoginScreen';
 import { authService } from '../services/authService';
-import { setAuthSession, useAuthStore } from '../store/authStore';
+import { clearAuthSession, setAuthSession, useAuthStore } from '../store/authStore';
 import { isValidIndianPhone, isValidOtp, isValidUpiId } from '../utils/validators';
 
 type StackParamList = {
   PhoneEntry: undefined;
+  RiderLogin: undefined;
   OTP: undefined;
   Profile: undefined;
   Platform: undefined;
   Premium: undefined;
   Dashboard: undefined;
+  AdminLogin: undefined;
+  AdminDashboard: undefined;
 };
 
 const Stack = createNativeStackNavigator<StackParamList>();
@@ -32,7 +38,7 @@ const Stack = createNativeStackNavigator<StackParamList>();
 type ShiftKey = 'MORNING' | 'AFTERNOON' | 'EVENING' | 'NIGHT';
 
 export function AppNavigator() {
-  const { riderId } = useAuthStore();
+  const { riderId, token } = useAuthStore();
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
   const [profile, setProfile] = useState({ firstName: '', lastName: '', vehicleNumber: '', password: '' });
@@ -51,8 +57,52 @@ export function AppNavigator() {
   const [otpError, setOtpError] = useState<string | null>(null);
   const [verifyingOtp, setVerifyingOtp] = useState(false);
   const [verifyError, setVerifyError] = useState<string | null>(null);
+  const [loginPassword, setLoginPassword] = useState('');
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [savedRiderSession, setSavedRiderSession] = useState<{ token: string; riderId: string } | null>(null);
 
   const shiftLabel = useMemo(() => shifts.join(', ') || 'AFTERNOON', [shifts]);
+  const riderDisplayName = useMemo(() => {
+    const full = `${profile.firstName} ${profile.lastName}`.trim();
+    return full || 'Rider';
+  }, [profile.firstName, profile.lastName]);
+
+  const linking: LinkingOptions<StackParamList> = useMemo(
+    () => ({
+      prefixes: [],
+      config: {
+        screens: {
+          PhoneEntry: '',
+          RiderLogin: 'login',
+          OTP: 'otp',
+          Profile: 'profile',
+          Platform: 'platform',
+          Premium: 'premium',
+          Dashboard: 'dashboard',
+          AdminLogin: 'admin',
+          AdminDashboard: 'admin/dashboard',
+        },
+      },
+    }),
+    [],
+  );
+
+  const applyLegalNameToProfile = (legalName?: string | null) => {
+    const cleaned = (legalName || '').trim();
+    if (!cleaned) {
+      return;
+    }
+
+    const parts = cleaned.split(/\s+/);
+    const firstName = parts[0] || '';
+    const lastName = parts.slice(1).join(' ');
+    setProfile((prev) => ({
+      ...prev,
+      firstName: firstName || prev.firstName,
+      lastName: lastName || prev.lastName,
+    }));
+  };
 
   const normalizedPhone = useMemo(() => {
     const trimmed = phone.replace(/\s+/g, '');
@@ -96,6 +146,7 @@ export function AppNavigator() {
       setVerifyError(null);
       const result = await authService.verifyOtp(normalizedPhone, otp);
       setAuthSession(result.access_token, result.rider_id);
+      applyLegalNameToProfile(result.legal_name);
       navigate();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'OTP verification failed.';
@@ -103,6 +154,33 @@ export function AppNavigator() {
       Alert.alert('Verification failed', message);
     } finally {
       setVerifyingOtp(false);
+    }
+  };
+
+  const handleRiderLogin = async (navigate: () => void) => {
+    if (!isValidIndianPhone(normalizedPhone)) {
+      Alert.alert('Invalid phone number', 'Enter your registered 10-digit Indian mobile number.');
+      return;
+    }
+
+    if (!loginPassword.trim()) {
+      Alert.alert('Missing password', 'Enter your password to continue.');
+      return;
+    }
+
+    try {
+      setLoginLoading(true);
+      setLoginError(null);
+      const result = await authService.riderLogin(normalizedPhone, loginPassword);
+      setAuthSession(result.access_token, result.rider_id);
+      applyLegalNameToProfile(result.legal_name);
+      navigate();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Login failed.';
+      setLoginError(message);
+      Alert.alert('Login failed', message);
+    } finally {
+      setLoginLoading(false);
     }
   };
 
@@ -282,8 +360,31 @@ export function AppNavigator() {
     }
   };
 
+  const handleOpenAdminLogin = (navigate: () => void) => {
+    if (token && riderId && riderId !== 'admin') {
+      setSavedRiderSession({ token, riderId });
+    }
+    navigate();
+  };
+
+  const handleAdminLogin = (adminToken: string, navigate: () => void) => {
+    setAuthSession(adminToken, 'admin');
+    navigate();
+  };
+
+  const handleBackFromAdmin = (goRiderDashboard: () => void, goAuthStart: () => void) => {
+    if (savedRiderSession?.token && savedRiderSession.riderId) {
+      setAuthSession(savedRiderSession.token, savedRiderSession.riderId);
+      goRiderDashboard();
+      return;
+    }
+
+    clearAuthSession();
+    goAuthStart();
+  };
+
   return (
-    <NavigationContainer>
+    <NavigationContainer linking={linking}>
       <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName="PhoneEntry">
         <Stack.Screen name="PhoneEntry">
           {(props) => (
@@ -291,8 +392,23 @@ export function AppNavigator() {
               phone={phone}
               onChangePhone={setPhone}
               onNext={() => handleSendOtp(() => props.navigation.navigate('OTP'))}
+              onLogin={() => props.navigation.navigate('RiderLogin')}
               sending={sendingOtp}
               error={otpError}
+            />
+          )}
+        </Stack.Screen>
+        <Stack.Screen name="RiderLogin">
+          {(props) => (
+            <RiderLoginScreen
+              phone={phone}
+              password={loginPassword}
+              onChangePhone={setPhone}
+              onChangePassword={setLoginPassword}
+              onLogin={() => handleRiderLogin(() => props.navigation.navigate('Dashboard'))}
+              onBack={() => props.navigation.goBack()}
+              loggingIn={loginLoading}
+              error={loginError}
             />
           )}
         </Stack.Screen>
@@ -363,14 +479,31 @@ export function AppNavigator() {
         </Stack.Screen>
         <Stack.Screen name="Dashboard">
           {(props) => (
-            <DashboardScreen
+            <RiderDashboard
               riderId={riderId ?? ''}
-              riderName={profile.firstName || 'Rider'}
-              shiftLabel={shiftLabel}
-              premium={premium}
-              onNavigateHome={() => props.navigation.navigate('Dashboard')}
-              onNavigateHistory={() => null}
-              onNavigatePolicy={() => null}
+              riderName={riderDisplayName}
+              onSwitchToAdmin={() => handleOpenAdminLogin(() => props.navigation.navigate('AdminLogin'))}
+            />
+          )}
+        </Stack.Screen>
+        <Stack.Screen name="AdminLogin">
+          {(props) => (
+            <AdminLogin
+              onLogin={(adminToken) => handleAdminLogin(adminToken, () => props.navigation.replace('AdminDashboard'))}
+              onBack={() => props.navigation.goBack()}
+            />
+          )}
+        </Stack.Screen>
+        <Stack.Screen name="AdminDashboard">
+          {(props) => (
+            <AdminDashboard
+              defaultPinCode={pinCode || '560034'}
+              onBackToRider={() =>
+                handleBackFromAdmin(
+                  () => props.navigation.replace('Dashboard'),
+                  () => props.navigation.replace('PhoneEntry'),
+                )
+              }
             />
           )}
         </Stack.Screen>

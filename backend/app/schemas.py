@@ -34,6 +34,7 @@ class VerifyOtpRequest(BaseModel):
 class VerifyOtpResponse(BaseModel):
     access_token: str
     rider_id: str
+    legal_name: Optional[str] = None
 
 
 class RiderInfoRequest(BaseModel):
@@ -271,6 +272,17 @@ class AccountStatusOption(BaseModel):
     code: AccountStatusCode
     label: str
     description: str
+
+
+class AccountStatusHistoryItem(BaseModel):
+    rider_id: str
+    from_status: Optional[AccountStatusCode] = None
+    to_status: AccountStatusCode
+    changed_by: str
+    source: str
+    note: Optional[str] = None
+    payment_id: Optional[str] = None
+    changed_at: str
 
 
 class OutboundIvrCallRequest(BaseModel):
